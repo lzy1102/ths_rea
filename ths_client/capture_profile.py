@@ -211,18 +211,23 @@ def extract_from_streams(c2s: dict, s2c: dict, conns: dict):
     return prof, notes
 
 
-def parse_site_list(exe_path, captured_host):
+def parse_site_list(exe_path, captured_hosts):
     """从 xiadan 安装目录的 RES/Zyy/ServerAddress/*_WT_SERVER 解析委托站点列表。
 
-    返回 (sites, source) : sites=[{ip,port,name,area,sp}] (GBK XML);
-    优先选包含 captured_host 的文件(该用户券商), 否则返回全部去重。
+    captured_hosts: 抓到的柜台IP(可多个, str或list) —— 用于匹配对应券商的文件。
+    返回 (sites, source): sites=[{ip,port,name,area,sp}]。
+    站点列表按券商分文件(31=国泰君安/100=中泰/59=平安/356=模拟盘...),
+    必须按实际连接的IP匹配, 匹配不到时返回空(绝不混并其他券商站点)。
     """
     if not exe_path:
         return [], ''
     sa_dir = Path(exe_path).parent / 'RES' / 'Zyy' / 'ServerAddress'
     if not sa_dir.is_dir():
         return [], ''
-    all_sites, matched = [], []
+    if isinstance(captured_hosts, str):
+        captured_hosts = [captured_hosts]
+    caps = set(x for x in (captured_hosts or []) if x)
+    matched, src = [], ''
     for f in sorted(sa_dir.glob('*_WT_SERVER')):
         try:
             txt = f.read_bytes().decode('gbk', 'replace')
@@ -237,19 +242,17 @@ def parse_site_list(exe_path, captured_host):
             items.append({'ip': kv['wt_ip'], 'port': int(m.group(1)) if m else 8002,
                           'name': kv.get('wt_name', ''), 'area': kv.get('wt_area', ''),
                           'sp': kv.get('wt_sp', '')})
-        all_sites += items
-        if captured_host and any(x['ip'] == captured_host for x in items):
-            matched = items
-    sites = matched or all_sites
+        if caps and any(x['ip'] in caps for x in items):
+            matched, src = items, f.name
     seen, out = set(), []
-    for x in sites:
+    for x in matched:
         k = (x['ip'], x['port'])
         if k not in seen:
             seen.add(k)
             out.append(x)
-    if captured_host:   # 当前使用站点排第一
-        out.sort(key=lambda x: 0 if x['ip'] == captured_host else 1)
-    return out, str(sa_dir)
+    if caps:
+        out.sort(key=lambda x: 0 if x['ip'] in caps else 1)
+    return out, src
 
 
 def _find_xiadan_pid():
@@ -324,11 +327,26 @@ def main(argv=None):
         return 1
 
     out = {k: v for k, v in prof.items() if v}
+    # 站点列表: 从 xiadan 安装目录按券商文件解析 (以抓到的全部柜台IP匹配)
+    cap_ips = [c['ip'] for c in conns.values() if c.get('port') == 8002]
+    if out.get('host'):
+        cap_ips.append(out['host'])
+    sites, src = parse_site_list(state.get('exe'), cap_ips)
+    if sites:
+        out['hosts'] = sites
     Path(a.out).write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding='utf-8')
     print('\n===== 提取结果 (已写入 %s) =====' % a.out)
     for k in ('zjzh', 'gdzh_sh', 'gdzh_sz', 'name', 'deptid', 'verinfo', 'host', 'port'):
         if out.get(k):
             print(f'  {k:8} = {out[k]}')
+    if sites:
+        print(f'  hosts    = {len(sites)} 个委托站点 (来源 {src})')
+        for x in sites[:6]:
+            print(f'      {x["ip"]:16}:{x["port"]:<5} {x["name"]} ({x["area"]})')
+        if len(sites) > 6:
+            print(f'      ... 共{len(sites)}个, 详见 {a.out}')
+    else:
+        notes.append('未匹配到该券商的站点文件(RES/Zyy/ServerAddress), hosts未写入')
     for n in notes:
         print(f'  [提示] {n}')
     print('\n使用方法: TradeClient.from_profile()  (或把该文件放到程序工作目录)')

@@ -39,6 +39,7 @@ import socket
 import struct
 import time
 
+from . import machine as _machine
 from . import trade_conn as TC
 from . import trade_msg as TM
 
@@ -127,9 +128,10 @@ class TradeClient:
         self.conn.greeting()                       # 包内 hello.bin 原样重放
         lip = self._local_ip()
         lport = self.conn.sock.getsockname()[1]
-        pt = TM.build_login(login_zh=self.zjzh, local_ip=lip, localport=lport,
-                            server_ip=self.conn.host, name=self.name)
-        self.info = self.conn.login(pt)
+        pt = bytearray(TM.build_login(login_zh=self.zjzh, local_ip=lip, localport=lport,
+                                      server_ip=self.conn.host, name=self.name))
+        _machine.patch(pt)                     # 注入真实机器信息 (MAC/CPU/序列号等)
+        self.info = self.conn.login(bytes(pt))
         self.seq = TM.MsgSeq(2)                    # 登录已用 seq=1
         tick0 = struct.unpack('<I', pt[0x88:0x8c])[0]
         self._tick_base = (tick0, time.monotonic())

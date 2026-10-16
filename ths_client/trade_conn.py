@@ -235,6 +235,7 @@ class TradeConn:
         zjzh/gdzh_sh/gdzh_sz/name_gbk: 真实账号配置 (模板内为脱敏占位符, 必须传入)。
         """
         from . import trade_msg as TM
+        from . import machine as _machine
         if tpl_dir is None:
             tpl_dir = STARTUP_DIR
         elif isinstance(tpl_dir, str):
@@ -247,6 +248,7 @@ class TradeConn:
             pt = bytearray(f.read_bytes())
             TM.patch_account(pt, zjzh=zjzh, gdzh_sh=gdzh_sh, gdzh_sz=gdzh_sz,
                              name_gbk=name_gbk)
+            _machine.patch(pt)
             pt[0x02:0x06] = self.sess
             if tick is not None:
                 struct.pack_into('<I', pt, 0x88, tick & 0xFFFFFFFF)

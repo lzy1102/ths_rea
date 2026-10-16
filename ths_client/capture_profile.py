@@ -56,6 +56,7 @@ try {
             if (n > 0 && n < 0x100000) dump('S2C', this.sock, this.buf, n);
         }
     });
+    try { send({ev: 'module', path: Process.mainModule.path}); } catch (e) {}
     send({ev: 'ready'});
 } catch (e) { send({ev: 'fatal', err: e.toString()}); }
 """
@@ -210,6 +211,47 @@ def extract_from_streams(c2s: dict, s2c: dict, conns: dict):
     return prof, notes
 
 
+def parse_site_list(exe_path, captured_host):
+    """从 xiadan 安装目录的 RES/Zyy/ServerAddress/*_WT_SERVER 解析委托站点列表。
+
+    返回 (sites, source) : sites=[{ip,port,name,area,sp}] (GBK XML);
+    优先选包含 captured_host 的文件(该用户券商), 否则返回全部去重。
+    """
+    if not exe_path:
+        return [], ''
+    sa_dir = Path(exe_path).parent / 'RES' / 'Zyy' / 'ServerAddress'
+    if not sa_dir.is_dir():
+        return [], ''
+    all_sites, matched = [], []
+    for f in sorted(sa_dir.glob('*_WT_SERVER')):
+        try:
+            txt = f.read_bytes().decode('gbk', 'replace')
+        except OSError:
+            continue
+        items = []
+        for it in re.findall(r'<item\s+([^/>]+?)/>', txt):
+            kv = dict(re.findall(r'(\w+)="([^"]*)"', it))
+            m = re.search(r'0HEXIN,(\d+)', kv.get('wt_port', ''))
+            if not kv.get('wt_ip'):
+                continue
+            items.append({'ip': kv['wt_ip'], 'port': int(m.group(1)) if m else 8002,
+                          'name': kv.get('wt_name', ''), 'area': kv.get('wt_area', ''),
+                          'sp': kv.get('wt_sp', '')})
+        all_sites += items
+        if captured_host and any(x['ip'] == captured_host for x in items):
+            matched = items
+    sites = matched or all_sites
+    seen, out = set(), []
+    for x in sites:
+        k = (x['ip'], x['port'])
+        if k not in seen:
+            seen.add(k)
+            out.append(x)
+    if captured_host:   # 当前使用站点排第一
+        out.sort(key=lambda x: 0 if x['ip'] == captured_host else 1)
+    return out, str(sa_dir)
+
+
 def _find_xiadan_pid():
     import subprocess
     try:
@@ -243,7 +285,7 @@ def main(argv=None):
     script = session.create_script(JS)
 
     conns, c2s, s2c = {}, {}, {}
-    state = {'ready': False}
+    state = {'ready': False, 'exe': None}
 
     def on_message(msg, data):
         if msg.get('type') != 'send':
@@ -255,6 +297,8 @@ def main(argv=None):
             print('已挂载。请在客户端完成登录并打开交易界面 (工具会自动抓取)...')
         elif ev == 'fatal':
             print('挂钩失败:', p.get('err'), file=sys.stderr)
+        elif ev == 'module':
+            state['exe'] = p.get('path')
         elif ev == 'connect':
             conns[p['sock']] = {'ip': p['ip'], 'port': p['port']}
         elif ev == 'io' and data is not None:

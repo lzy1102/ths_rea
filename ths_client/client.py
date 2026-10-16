@@ -77,7 +77,8 @@ class TradeClient:
     def __init__(self, zjzh: str, *, gdzh_sh: str = None, gdzh_sz: str = None,
                  name: str = '某某某', deptid=None, verinfo: str = None,
                  host: str = TC.COUNTER_HOST,
-                 port: int = TC.COUNTER_PORT, timeout: float = 20.0):
+                 port: int = TC.COUNTER_PORT, timeout: float = 20.0,
+                 hosts: list = None):
         """
         zjzh: 资金账号 (如 12345678)
         gdzh_sh/gdzh_sz: 沪/深股东号 (沪市A开头如A123456789; 深市数字如0123456789)
@@ -89,6 +90,7 @@ class TradeClient:
         self.name = name
         self.deptid = deptid          # 营业部ID (None=模板默认1302)
         self.verinfo = verinfo        # 券商标记 (None=模板默认gtja)
+        self.hosts = hosts or []      # 备用站点 [{'ip','port'}...] 连接失败自动切换
         if not (1 <= len(name.encode('gbk')) <= 6):
             raise ValueError('户名GBK须1~6字节: %r' % name)
         self.conn = TC.TradeConn(host=host, port=port, timeout=timeout)
@@ -112,15 +114,30 @@ class TradeClient:
             kw.setdefault('host', prof['host'])
         if prof.get('port'):
             kw.setdefault('port', int(prof['port']))
+        if prof.get('hosts'):
+            kw.setdefault('hosts', prof['hosts'])
         return cls(zjzh=prof['zjzh'], gdzh_sh=prof.get('gdzh_sh'),
                    gdzh_sz=prof.get('gdzh_sz'), name=prof.get('name', '某某某'),
                    deptid=prof.get('deptid'), verinfo=prof.get('verinfo'), **kw)
 
     # ---------------- 连接/登录 ----------------
     def connect(self, bind_port: int = 0, dump_dir: str = None):
-        """建立TCP连接。dump_dir 非空则落盘全部收发帧 (调试用)。"""
-        self.conn.connect(bind_port=bind_port, dump_dir=dump_dir)
-        return self
+        """建立TCP连接 (按 host -> hosts 顺序尝试, 失败自动切换站点)。"""
+        cands = [(self.conn.host, self.conn.port)]
+        for h in self.hosts:
+            ip, port = (h.get('ip'), h.get('port')) if isinstance(h, dict) else tuple(h)
+            if ip and (ip, int(port)) not in cands:
+                cands.append((ip, int(port)))
+        last = None
+        for ip, port in cands:
+            self.conn.host, self.conn.port = ip, port
+            try:
+                self.conn.connect(bind_port=bind_port, dump_dir=dump_dir)
+                self.host_used = (ip, port)
+                return self
+            except OSError as e:
+                last = e
+        raise last if last else OSError('无可用站点')
 
     def close(self):
         self.conn.close()

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Hevo>
+  <RequestTypeV3 method="udns"        is_subscription="true"   server_tag="udns"   detail_format="N/A" key="HexinMessagePush" remarks="核新推送"               />
+  <RequestTypeV3 method="wdcs"        is_subscription="false"  server_tag="wdcs"   detail_format="N/A" key="WencaiIndecis"    remarks="问财K线指标"            />
+  <RequestTypeV3 method="qufundcalc"  is_subscription="false"  server_tag="supercalc" detail_format="N/A" key="QueryBigCash"     remarks="请求大单金额统计数据"        />
+  <RequestTypeV3 method="subfundcalc" is_subscription="true"   paramKey="class" server_tag="supercalc" detail_format="N/A" key="QueryBigCash"     remarks="推送大单金额统计数据"        />
+  <RequestTypeV3 method="orderkeeper" is_subscription="false"  server_tag="otqs" detail_format="N/A"  key="WeiTuoDetail"      remarks="逐笔明细"                />
+  <RequestTypeV3 method="quwencai"    is_subscription="false"  server_tag="test_wencai" detail_format="N/A"  key="Wencai"      remarks="问财指标"                />
+  <RequestTypeV3 method="statscalc"   is_subscription="false"  server_tag="calc" detail_format="N/A"  key="calc"      remarks="计算项"                />
+  <RequestTypeV3 method="select"      is_subscription="false"  server_tag="stats" detail_format="N/A"  key="calc"      remarks="炸板涨停个股代码表请求"                />
+  <RequestTypeV3 method="qurealorder" is_subscription="false"  server_tag="realorder" detail_format="N/A"  key="realorder"      remarks="短线精灵请求"                />
+  <RequestTypeV3 method="subrealorder" is_subscription="false" server_tag="realorder" detail_format="N/A"  key="realorder"      remarks="短线精灵订阅"  />
+  <RequestTypeV3 method="pushrealorder" associatioin="subrealorder" is_subscription="true" paramKey="market" server_tag="realorder" detail_format="N/A"  key="realorder"      remarks="短线精灵推送"  />
+  <RequestTypeV3 method="statssort"   is_subscription="false"  server_tag="stats" detail_format="N/A"  key="calc"      remarks="涨停状态涨停原因排序"                />	
+</Hevo>

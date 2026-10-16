@@ -1,0 +1,503 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Hevo>
+  <Market id="USHI" old_id="16" ShareCountPerUnit="100" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="沪市指数" zh-tw="滬市指數" en-us="Shanghai Indeces A" ja-jp="滬市指數" />
+    <ShortPrompt zh-cn="沪指" zh-tw="滬指" en-us="" ja-jp="滬指" />
+  </Market>
+  <Market id="USHA" old_id="17" ShareCountPerUnit="100" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="沪市A股" zh-tw="滬市A股" en-us="Shanghai Stock A" ja-jp="滬市A股" />
+    <ShortPrompt zh-cn="沪A" zh-tw="滬A" en-us="" ja-jp="滬A" />
+  </Market>
+  <Market id="USHB" old_id="18" ShareCountPerUnit="100" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="沪市B股" zh-tw="滬市B股" en-us="Shanghai Stock B" ja-jp="滬市B股" />
+    <ShortPrompt zh-cn="沪B" zh-tw="滬B" en-us="" ja-jp="滬B" />
+  </Market>
+  <Market id="USHD" old_id="19" ShareCountPerUnit="100" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="沪市债券" zh-tw="滬市債券" en-us="Shanghai Bond" ja-jp="滬市債券" />
+    <ShortPrompt zh-cn="沪债" zh-tw="滬債" en-us="" ja-jp="滬債" />
+  </Market>
+  <Market id="USHJ" old_id="20" ShareCountPerUnit="100" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="沪市基金" zh-tw="滬市基金" en-us="Shanghai Fund" ja-jp="滬市基金" />
+    <ShortPrompt zh-cn="沪基" zh-tw="滬基" en-us="" ja-jp="滬基" />
+  </Market>
+  <Market id="USHP" old_id="21" ShareCountPerUnit="100" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="上证退市" zh-tw="上證退市" en-us="" ja-jp="上證退市" />
+    <ShortPrompt zh-cn="退市" zh-tw="退市" en-us="" ja-jp="退市" />
+  </Market>
+  <Market id="USHT" old_id="22" ShareCountPerUnit="100" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="沪市风险" zh-tw="滬市風險" en-us="Shanghai Risk" ja-jp="滬市風險" />
+    <ShortPrompt zh-cn="风险" zh-tw="風險" en-us="" ja-jp="風險" />
+  </Market>
+  <Market id="USHC" old_id="23" ShareCountPerUnit="100" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UTII" old_id="24" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="USZI" old_id="32" ShareCountPerUnit="100" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="深市指数" zh-tw="深市指數" en-us="ShenZhen Indeces A" ja-jp="深市指數" />
+    <ShortPrompt zh-cn="深指" zh-tw="深指" en-us="" ja-jp="深指" />
+  </Market>
+  <Market id="USZA" old_id="33" ShareCountPerUnit="100" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="深市A股" zh-tw="深市A股" en-us="ShenZhen Stock A" ja-jp="深市A股" />
+    <ShortPrompt zh-cn="深A" zh-tw="深A" en-us="" ja-jp="深A" />
+  </Market>
+  <Market id="USZB" old_id="34" ShareCountPerUnit="100" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="深市B股" zh-tw="深市B股" en-us="ShenZhen Stock B" ja-jp="深市B股" />
+    <ShortPrompt zh-cn="深B" zh-tw="深B" en-us="" ja-jp="深B" />
+  </Market>
+  <Market id="USZD" old_id="35" ShareCountPerUnit="100" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="深市债券" zh-tw="深市債券" en-us="ShenZhen Bond" ja-jp="深市債券" />
+    <ShortPrompt zh-cn="深债" zh-tw="深債" en-us="" ja-jp="深債" />
+  </Market>
+  <Market id="USZJ" old_id="36" ShareCountPerUnit="100" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="深市基金" zh-tw="深市基金" en-us="ShenZhen Fund" ja-jp="深市基金" />
+    <ShortPrompt zh-cn="深基" zh-tw="深基" en-us="" ja-jp="深基" />
+  </Market>
+  <Market id="USZP" old_id="37" ShareCountPerUnit="100" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="深证退市" zh-tw="深證退市" en-us="" ja-jp="深證退市" />
+    <ShortPrompt zh-cn="退市" zh-tw="退市" en-us="" ja-jp="退市" />
+  </Market>
+  <Market id="USZH" old_id="38" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="USZC" old_id="39" ShareCountPerUnit="100" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="深圳其他" zh-tw="深圳其他" en-us="" ja-jp="深圳其他" />
+    <ShortPrompt zh-cn="其他" zh-tw="其他" en-us="" ja-jp="其他" />
+  </Market>
+  <Market id="UMTI" old_id="40" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UMTA" old_id="41" ShareCountPerUnit="100" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="股指期货" zh-tw="股指期货" en-us="" ja-jp="股指期货" />
+    <ShortPrompt zh-cn="指期" zh-tw="指期" en-us="" ja-jp="指期" />
+  </Market>
+  <Market id="URFI" old_id="48" ShareCountPerUnit="100" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="同花顺指数" zh-tw="同花順指數" en-us="THS indecis" ja-jp="同花順指數" />
+    <ShortPrompt zh-cn="同指" zh-tw="同指" en-us="" ja-jp="同指" />
+  </Market>
+  <Market id="URFA" old_id="49" ShareCountPerUnit="100" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="三级行业" zh-tw="三级行业" en-us="" ja-jp="三级行业" />
+    <ShortPrompt zh-cn="同指" zh-tw="同指" en-us="" ja-jp="同指" />
+  </Market>
+  <Market id="UZOI" old_id="56" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UZOO" old_id="57" ShareCountPerUnit="1" DecimalDigits="4" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="期权" zh-tw="期权" en-us="" ja-jp="期权" />
+    <ShortPrompt zh-cn="期权" zh-tw="期权" en-us="" ja-jp="期权" />
+  </Market>
+  <Market id="UCFI" old_id="64" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="期指" zh-tw="期指" en-us="FuturesIndex" ja-jp="期指" />
+    <ShortPrompt zh-cn="期指" zh-tw="期指" en-us="FuturesIndex" ja-jp="期指" />
+  </Market>
+  <Market id="UCFS" old_id="65" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="上海期货交易所" zh-tw="上海期貨交易所" en-us="Shanghai Future" ja-jp="上海期貨交易所" />
+    <ShortPrompt zh-cn="期货" zh-tw="期貨" en-us="" ja-jp="期貨" />
+  </Market>
+  <Market id="UCFD" old_id="66" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="大商所" zh-tw="大商所" en-us="Dalian Future" ja-jp="大商所" />
+    <ShortPrompt zh-cn="期货" zh-tw="期貨" en-us="" ja-jp="期貨" />
+  </Market>
+  <Market id="UCFZ" old_id="67" ShareCountPerUnit="1" DecimalDigits="1" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="郑商所" zh-tw="鄭商所" en-us="Zhengzhou Future" ja-jp="鄭商所" />
+    <ShortPrompt zh-cn="期货" zh-tw="期貨" en-us="" ja-jp="期貨" />
+  </Market>
+  <Market id="UCFT" old_id="68" ShareCountPerUnit="1" DecimalDigits="1" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="大连期权" zh-tw="大连期权" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="期权" zh-tw="期权" en-us="Options" ja-jp="期权" />
+  </Market>
+  <Market id="UCFL" old_id="69" ShareCountPerUnit="1" DecimalDigits="1" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="郑州期权" zh-tw="郑州期权" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="期权" zh-tw="期权" en-us="Options" ja-jp="期权" />
+  </Market>
+  <Market id="UCFX" old_id="70" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="上海期权" zh-tw="上海期权" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="期权" zh-tw="期权" en-us="Options" ja-jp="期权" />
+  </Market>
+  <Market id="USKI" old_id="72" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="沪港通指数" zh-tw="滬港通指數" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="沪港通" zh-tw="滬港通" en-us="" ja-jp="" />
+  </Market>
+  <Market id="USKM" old_id="73" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="沪港通市场" zh-tw="滬港通市場" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="沪港通" zh-tw="滬港通" en-us="" ja-jp="" />
+  </Market>
+  <Market id="USKG" old_id="74" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+  	<Name zh-cn="沪港通创业板" zh-tw="滬港通創業板" en-us="" ja-jp="" />
+  	<ShortPrompt zh-cn="沪港通" zh-tw="滬港通" en-us="" ja-jp="" />
+  </Market>
+  <Market id="USKT" old_id="76" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+  	<Name zh-cn="沪港通信托基金" zh-tw="滬港通信托基金" en-us="沪港通信托基金" ja-jp="沪港通信托基金" />
+  	<ShortPrompt zh-cn="港基(沪)" zh-tw="港基(滬)" en-us="港基(沪)" ja-jp="港基(沪)" />
+  </Market>
+  <Market id="USGI" old_id="80" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="USGG" old_id="81" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="上海黄金" zh-tw="上海黃金" en-us="Shanghai Gold" ja-jp="上海黃金" />
+    <ShortPrompt zh-cn="黄金" zh-tw="黄金" en-us="" ja-jp="黄金" />
+  </Market>
+  <Market id="UFII" old_id="88" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="全球指数" zh-tw="全球指數" en-us="Globle Indeces" ja-jp="全球指數" />
+    <ShortPrompt zh-cn="全球" zh-tw="全球" en-us="" ja-jp="全球" />
+  </Market>
+  <Market id="UFIA" old_id="89" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="美股同花顺指数" zh-tw="美國同花順指數" en-us="USA Indeces" ja-jp="美國同花順指數" />
+    <ShortPrompt zh-cn="美指" zh-tw="美指" en-us="" ja-jp="美指" />
+  </Market>
+  <Market id="UFIH" old_id="90" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="港股同花顺指数" zh-tw="港股同花順指數" en-us="USA Indeces" ja-jp="港股同花順指數" />
+    <ShortPrompt zh-cn="港指" zh-tw="港指" en-us="" ja-jp="港指" />
+  </Market>
+  <Market id="UFIK" old_id="91" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="英股同花顺指数" zh-tw="英股同花順指數" en-us="USA Indeces" ja-jp="英股同花順指數" />
+    <ShortPrompt zh-cn="英指" zh-tw="英指" en-us="" ja-jp="英指" />
+  </Market>
+  <Market id="UFXI" old_id="96" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UFXB" old_id="97" ShareCountPerUnit="1" DecimalDigits="4" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="基本汇率" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="外汇" zh-tw="外汇" en-us="" ja-jp="外汇" />
+  </Market>
+  <Market id="UFXC" old_id="98" ShareCountPerUnit="1" DecimalDigits="4" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="交叉汇率" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="外汇" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UFXR" old_id="99" ShareCountPerUnit="1" DecimalDigits="4" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="反向汇率" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="外汇" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UFXM" old_id="100" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UFXN" old_id="101" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UFXO" old_id="102" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="外汇期权" zh-tw="外汇期权" en-us="" ja-jp="外汇期权" />
+    <ShortPrompt zh-cn="期权" zh-tw="期权" en-us="" ja-jp="期权" />
+  </Market>
+  <Market id="USWI" old_id="104" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="USWP" old_id="105" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="iFinD退" zh-tw="iFinD退" en-us="" ja-jp="iFinD退" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="USWS" old_id="106" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="期指" zh-tw="期指" en-us="FuturesIndex" ja-jp="期指" />
+    <ShortPrompt zh-cn="期指" zh-tw="期指" en-us="FuturesIndex" ja-jp="期指" />
+  </Market>
+  <Market id="USWX" old_id="107" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="USWF" old_id="108" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="USWL" old_id="109" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="USWZ" old_id="110" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UHFI" old_id="112" ShareCountPerUnit="1" DecimalDigits="4" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="香港期交所" zh-tw="香港期交所" en-us="香港期交所" ja-jp="香港期交所" />
+    <ShortPrompt zh-cn="期货" zh-tw="期货" en-us="期货" ja-jp="期货" />
+  </Market>
+  <Market id="UHFF" old_id="113" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="期货" zh-tw="期货" en-us="期货" ja-jp="期货" />
+  </Market>
+  <Market id="UHFS" old_id="114" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="期货" zh-tw="期货" en-us="期货" ja-jp="期货" />
+  </Market>
+  <Market id="UHFR" old_id="115" ShareCountPerUnit="1" DecimalDigits="4" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="期货" zh-tw="期货" en-us="期货" ja-jp="期货" />
+  </Market>
+  <Market id="UHFZ" old_id="116" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="期货" zh-tw="期货" en-us="期货" ja-jp="期货" />
+  </Market>
+  <Market id="UZZI" old_id="120" ShareCountPerUnit="100" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="中证指数" zh-tw="中证指数" en-us="" ja-jp="中证指数" />
+    <ShortPrompt zh-cn="中证" zh-tw="中证" en-us="" ja-jp="中证" />
+  </Market>
+  <Market id="UIFI" old_id="128" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UIFF" old_id="129" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="期货" zh-tw="期货" en-us="" ja-jp="期货" />
+  </Market>
+  <Market id="UFIS" old_id="92" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="CME" zh-tw="CME" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="CME" zh-tw="CME" en-us="" ja-jp="CME" />
+  </Market>
+  <Market id="UIFB" old_id="130" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="期权" zh-tw="期权" en-us="" ja-jp="期权" />
+    <ShortPrompt zh-cn="期权" zh-tw="期权" en-us="" ja-jp="期权" />
+  </Market>
+  <Market id="UIDI" old_id="136" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UIDS" old_id="137" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="USTI" old_id="144" ShareCountPerUnit="100" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="新三板指数" zh-tw="新三板指數" en-us="New 3 indecis" ja-jp="新三板指數" />
+    <ShortPrompt zh-cn="指数" zh-tw="指数" en-us="" ja-jp="指数" />
+  </Market>
+  <Market id="USTA" old_id="145" ShareCountPerUnit="100" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="新三板" zh-tw="新三板" en-us="New 3 indecis" ja-jp="新三板" />
+    <ShortPrompt zh-cn="股转" zh-tw="股转" en-us="" ja-jp="股转" />
+  </Market>
+  <Market id="USTM" old_id="151" ShareCountPerUnit="100" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+	<Name zh-cn="北京A股" zh-tw="北京A股" en-us="Beijing Stock A" ja-jp="北京A股" />
+	<ShortPrompt zh-cn="京A" zh-tw="京A" en-us="" ja-jp="京A" />
+  </Market>
+  <Market id="USTD" old_id="147" ShareCountPerUnit="100" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+	<Name zh-cn="北京债券" zh-tw="北京債券" en-us="Beijing Bond" ja-jp="北京債券" />
+	<ShortPrompt zh-cn="京债" zh-tw="京債" en-us="" ja-jp="京債" />
+  </Market>
+  <Market id="USTB" old_id="146" ShareCountPerUnit="100" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="新三板" zh-tw="新三板" en-us="New 3 indecis" ja-jp="新三板" />
+    <ShortPrompt zh-cn="股转" zh-tw="股转" en-us="" ja-jp="股转" />
+  </Market>
+  <Market id="USTT" old_id="150" ShareCountPerUnit="100" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="新三板" zh-tw="新三板" en-us="New 3 indecis" ja-jp="新三板" />
+    <ShortPrompt zh-cn="股转" zh-tw="股转" en-us="" ja-jp="股转" />
+  </Market>
+  <Market id="UZKI" old_id="152" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="深港通指数" zh-tw="深港通指數" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="深港通" zh-tw="深港通" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UZKM" old_id="153" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="深港通市场" zh-tw="深港通市場" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="深港通" zh-tw="深港通" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UZKG" old_id="154" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UZKW" old_id="155" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UZKT" old_id="156" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="深港通信托基金" zh-tw="深港通信托基金" en-us="深港通信托基金" ja-jp="深港通信托基金" />
+    <ShortPrompt zh-cn="港基(深)" zh-tw="港基(深)" en-us="港基(深)" ja-jp="港基(深)" />
+  </Market>
+  <Market id="UZKD" old_id="157" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UZKB" old_id="158" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UEUI" old_id="160" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="伦敦交易所" zh-tw="倫敦交易所" en-us="" ja-jp="倫敦交易所" />
+    <ShortPrompt zh-cn="英指" zh-tw="英指" en-us="" ja-jp="英指" />
+  </Market>
+  <Market id="UEUA" old_id="161" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="伦敦交易所" zh-tw="倫敦交易所" en-us="" ja-jp="倫敦交易所" />
+    <ShortPrompt zh-cn="英股" zh-tw="英股" en-us="" ja-jp="英股" />
+  </Market>
+  <Market id="UNYI" old_id="168" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="纽约交易所" zh-tw="紐約交易所" en-us="紐約交易所" ja-jp="紐約交易所" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UNYN" old_id="169" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="纽约股票" zh-tw="紐約股票" en-us="NYSE" ja-jp="紐約股票" />
+    <ShortPrompt zh-cn="美股" zh-tw="美股" en-us="" ja-jp="美股" />
+  </Market>
+  <Market id="UNYA" old_id="170" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="美国交易所" zh-tw="美國交易所" en-us="AMES" ja-jp="美國交易所" />
+    <ShortPrompt zh-cn="美股" zh-tw="美股" en-us="" ja-jp="美股" />
+  </Market>
+  <Market id="UNYC" old_id="171" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UNYP" old_id="172" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UNYY" old_id="173" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UNYM" old_id="174" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UNYF" old_id="175" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UHKI" old_id="176" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="香港指数" zh-tw="香港指數" en-us="Hongkong Indeces" ja-jp="香港指數" />
+    <ShortPrompt zh-cn="港指" zh-tw="港指" en-us="" ja-jp="港指" />
+  </Market>
+  <Market id="UHKM" old_id="177" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="香港股市" zh-tw="香港股市" en-us="Hongkong Indeces" ja-jp="香港股市" />
+    <ShortPrompt zh-cn="港股" zh-tw="港股" en-us="" ja-jp="港股" />
+  </Market>
+  <Market id="UHKG" old_id="178" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="香港创业版" zh-tw="香港創業版" en-us="Hongkong Indeces" ja-jp="香港認股證" />
+    <ShortPrompt zh-cn="港股" zh-tw="港股" en-us="" ja-jp="港股" />
+  </Market>
+  <Market id="UHKW" old_id="179" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="香港认股证" zh-tw="香港認股證" en-us="AMES" ja-jp="香港認股證" />
+    <ShortPrompt zh-cn="港股" zh-tw="港股" en-us="" ja-jp="港股" />
+  </Market>
+  <Market id="UHKT" old_id="180" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="香港基金" zh-tw="香港基金" en-us="Hongkong Indeces" ja-jp="香港基金" />
+    <ShortPrompt zh-cn="港基" zh-tw="港基" en-us="" ja-jp="港基" />
+  </Market>
+  <Market id="UHKD" old_id="181" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="香港债券" zh-tw="香港债券" en-us="Hongkong Indeces" ja-jp="香港债券" />
+    <ShortPrompt zh-cn="港债" zh-tw="港债" en-us="" ja-jp="港债" />
+  </Market>
+  <Market id="UHKB" old_id="182" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="香港牛熊证" zh-tw="香港牛熊证" en-us="Hongkong Indeces" ja-jp="香港牛熊证" />
+    <ShortPrompt zh-cn="港股" zh-tw="港股" en-us="" ja-jp="港股" />
+  </Market>
+  <Market id="UHKP" old_id="183" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="香港退" zh-tw="香港退" en-us="Hongkong Delisted" ja-jp="香港退" />
+    <ShortPrompt zh-cn="港股" zh-tw="港股" en-us="" ja-jp="港股" />
+  </Market>
+  <Market id="UNQI" old_id="184" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UNQQ" old_id="185" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="纳斯达克精选" zh-tw="納斯達克精選" en-us="Nasdaq Choice" ja-jp="納斯達克精選" />
+    <ShortPrompt zh-cn="美股" zh-tw="美股" en-us="" ja-jp="美股" />
+  </Market>
+  <Market id="UNQS" old_id="186" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="纳斯达克证券" zh-tw="納斯達克證券" en-us="Nasdaq Securities" ja-jp="納斯達克證券" />
+    <ShortPrompt zh-cn="美股" zh-tw="美股" en-us="" ja-jp="美股" />
+  </Market>
+  <Market id="UNQB" old_id="187" ShareCountPerUnit="1" DecimalDigits="4" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="纳斯达克退市" zh-tw="納斯達克退市" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="美股" zh-tw="美股" en-us="" ja-jp="美股" />
+  </Market>
+  <Market id="UNQP" old_id="188" ShareCountPerUnit="1" DecimalDigits="4" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="纳斯达克场外交易市场" zh-tw="納斯達克場外交易市場" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="美股" zh-tw="美股" en-us="" ja-jp="美股" />
+  </Market>
+  <Market id="UNQE" old_id="189" ShareCountPerUnit="1" DecimalDigits="4" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="纳斯达克交易所" zh-tw="納斯達克交易所" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="美股" zh-tw="美股" en-us="" ja-jp="美股" />
+  </Market>
+  <Market id="UOTI" old_id="192" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UOTS" old_id="193" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UUSI" old_id="200" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UUSD" old_id="201" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UUSA" old_id="202" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UBII" old_id="208" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UBIS" old_id="209" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UCMI" old_id="216" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="" zh-tw="" en-us="" ja-jp="" />
+    <ShortPrompt zh-cn="" zh-tw="" en-us="" ja-jp="" />
+  </Market>
+  <Market id="UCMN" old_id="217" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="外盘期货连续" zh-tw="外盤期貨連續" en-us="Basic Exchange Rate" ja-jp="外盤期貨連續" />
+    <ShortPrompt zh-cn="期货" zh-tw="期貨" en-us="" ja-jp="期貨" />
+  </Market>
+  <Market id="UCMC" old_id="218" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="贵金属现货" zh-tw="貴金屬現貨" en-us="Basic Exchange Rate" ja-jp="貴金屬現貨" />
+    <ShortPrompt zh-cn="期货" zh-tw="期貨" en-us="" ja-jp="期貨" />
+  </Market>
+  <Market id="UCMS" old_id="219" ShareCountPerUnit="1" DecimalDigits="3" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="ICE期货" zh-tw="ICE期貨" en-us="Basic Exchange Rate" ja-jp="ICE期貨" />
+    <ShortPrompt zh-cn="期货" zh-tw="期貨" en-us="Future" ja-jp="期貨" />
+  </Market>
+  <Market id="USOI" old_id="232" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="期权" zh-tw="期权" en-us="期权" ja-jp="期权" />
+    <ShortPrompt zh-cn="期权" zh-tw="期权" en-us="期权" ja-jp="期权" />
+  </Market>
+  <Market id="USOO" old_id="233" ShareCountPerUnit="1" DecimalDigits="4" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="期权" zh-tw="期权" en-us="期权" ja-jp="期权" />
+    <ShortPrompt zh-cn="期权" zh-tw="期权" en-us="期权" ja-jp="期权" />
+  </Market>
+  <Market id="UZF" old_id="0" ShareCountPerUnit="1" DecimalDigits="0" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+	<Name zh-cn="郑州期货套利" zh-tw="郑州期货套利" en-us="郑州期货套利" ja-jp="郑州期货套利" />
+	<ShortPrompt zh-cn="套利" zh-tw="套利" en-us="套利" ja-jp="套利" />
+  </Market>	
+  <Market id="UZFM" old_id="0" ShareCountPerUnit="1" DecimalDigits="0" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+	<Name zh-cn="郑州期货套利" zh-tw="郑州期货套利" en-us="郑州期货套利" ja-jp="郑州期货套利" />
+	<ShortPrompt zh-cn="套利" zh-tw="套利" en-us="套利" ja-jp="套利" />
+  </Market>
+  <Market id="UDF" old_id="0" ShareCountPerUnit="1" DecimalDigits="0" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+	<Name zh-cn="大连期货套利" zh-tw="大连期货套利" en-us="大连期货套利" ja-jp="大连期货套利" />
+	<ShortPrompt zh-cn="套利" zh-tw="套利" en-us="套利" ja-jp="套利" />
+  </Market>	
+  <Market id="UDFM" old_id="0" ShareCountPerUnit="1" DecimalDigits="0" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+	<Name zh-cn="大连期货套利" zh-tw="大连期货套利" en-us="大连期货套利" ja-jp="大连期货套利" />
+	<ShortPrompt zh-cn="套利" zh-tw="套利" en-us="套利" ja-jp="套利" />
+  </Market>
+  <Market id="UGFI" old_id="0" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="广州期货行情指数" zh-tw="广州期货行情指数" en-us="广州期货行情指数" ja-jp="广州期货行情指数" />
+	  <ShortPrompt zh-cn="指数" zh-tw="指数" en-us="指数" ja-jp="指数" />
+  </Market>
+  <Market id="UGFF" old_id="0" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="广州期货行情期货" zh-tw="广州期货行情期货" en-us="广州期货行情期货" ja-jp="广州期货行情期货" />
+    <ShortPrompt zh-cn="期货" zh-tw="期货" en-us="期货" ja-jp="期货" />
+  </Market>
+  <Market id="UGFO" old_id="0" ShareCountPerUnit="1" DecimalDigits="2" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+    <Name zh-cn="广州期货行情期权" zh-tw="广州期货行情期权" en-us="广州期货行情期权" ja-jp="广州期货行情期权" />
+    <ShortPrompt zh-cn="期权" zh-tw="期权" en-us="期权" ja-jp="期权" />
+  </Market>
+  <Market id="UGA" old_id="0" ShareCountPerUnit="1" DecimalDigits="0" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+	<Name zh-cn="广州期货套利" zh-tw="廣州期貨套利" en-us="广州期货套利" ja-jp="广州期货套利" />
+	<ShortPrompt zh-cn="套利" zh-tw="套利" en-us="套利" ja-jp="套利" />
+  </Market>
+  <Market id="UGAM" old_id="0" ShareCountPerUnit="1" DecimalDigits="0" TradeTime="9:15-11:30;13:00-15:00" DefaultAxisYType="ByValue">
+	<Name zh-cn="广州期货套利" zh-tw="廣州期貨套利" en-us="广州期货套利" ja-jp="广州期货套利" />
+	<ShortPrompt zh-cn="套利" zh-tw="套利" en-us="套利" ja-jp="套利" />
+  </Market>
+</Hevo>

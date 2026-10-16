@@ -1,0 +1,46 @@
+# ============ Python 构建/缓存 ============
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+build/
+dist/
+*.whl
+
+# ============ 虚拟环境 ============
+.venv/
+venv/
+env/
+
+# ============ 本项目: 抓包/调试产物 ============
+# (含账号/股东号/行情等敏感数据, 且体积大, 勿提交)
+captures/
+*.pcap
+*.pcapng
+*.dmp
+*.log
+
+# ============ 大型安装包/客户端二进制 ============
+*.exe
+*.deb
+*.msi
+*.dll
+
+# ============ 反编译/分析副产物 ============
+decompiled/
+*.asm
+*.idb
+
+# ============ 敏感凭据 ============
+.env
+session.json
+token*.json
+
+# ============ IDE / 系统 ============
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+local_profile.json

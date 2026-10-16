@@ -235,8 +235,10 @@ def build_login(*, login_zh: str, local_ip: str, localport: int,
                 server_ip: str, name: str = None) -> bytes:
     """构造 C2S#1 登录明文 (1132B模板+补丁)。
 
-    模板内账号/姓名/硬件指纹为脱敏占位符; login_zh/localip/localport 必传,
-    name (户名) 可选传入以替换模板占位名。"""
+    模板内账号/姓名/硬件指纹为脱敏占位符; login_zh 必传,
+    name (户名) 可选传入以替换模板占位名。
+    实测: 硬件指纹(MAC/CPU/序列号/GUID)与 localip/localport 服务端均不校验
+    (故意填错 IP 10.0.0.99:12345 登录照常成功), 仅账号/股东号必须正确。"""
     b = _tpl('login')
     name_gbk = name.encode('gbk') if name else None
     if name_gbk is not None and len(name_gbk) != 6:

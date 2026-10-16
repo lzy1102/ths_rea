@@ -35,6 +35,7 @@
 import json
 import os
 import re
+from pathlib import Path
 import socket
 import struct
 import time
@@ -285,6 +286,47 @@ class TradeClient:
                                    seq=self.seq, tick=self.tick())
         return self._send_recv(TM.WIRE_CMD['sell'][1], pt)
 
+    # ---------------- 查询 (持仓/委托/成交) ----------------
+    def _query(self, tpl_code: str, market: str = None) -> dict:
+        """发送查询模板(0126持仓/0326委托/0226成交)并返回应答。
+
+        返回 {'type','plaintext','text'} + 'columns'(GBK列名) + 'stats'(SX=...统计)。
+        注: 记录体为客户端 hd1.0 二进制格式, 结构化解码待后续版本。
+        """
+        import glob
+        market = market or '2'
+        tpl_dir = TC.STARTUP_SH_DIR if market == '2' else TC.STARTUP_DIR
+        fs = glob.glob(str(Path(tpl_dir) / ('*_' + tpl_code + '_*.bin')))
+        if not fs:
+            raise FileNotFoundError('缺少查询模板 %s (market=%s)' % (tpl_code, market))
+        pt = bytearray(Path(fs[0]).read_bytes())
+        TM.patch_account(pt, zjzh=self.zjzh, gdzh_sh=self.gdzh_sh,
+                         gdzh_sz=self.gdzh_sz, name_gbk=self.name.encode('gbk'))
+        TM.patch_broker(pt, deptid=self.deptid, verinfo=self.verinfo)
+        _machine.patch(pt, info=self.machine_info)
+        pt[0x02:0x06] = self.info['sess']
+        struct.pack_into('<I', pt, 0x88, self.tick())
+        struct.pack_into('<I', pt, 0x8c, self.seq.next())
+        pt[8:24] = TM._sign(bytes(pt))
+        wire = bytes([pt[6], pt[7] | 0x20])
+        r = self._send_recv(wire, bytes(pt))
+        r['columns'] = _gbk_runs(r['plaintext'])
+        m = re.search(r'SX=[^&]*(?:&[A-Z_]+=[^&\n]*)+', r['text'])
+        r['stats'] = parse_kv(m.group(0)) if m else {}
+        return r
+
+    def query_positions(self, market: str = None) -> dict:
+        """查询持仓/股票余额 (0126)。market: '2'=沪(默认) '1'=深。"""
+        return self._query('0126', market)
+
+    def query_orders(self, market: str = None) -> dict:
+        """查询当日委托 (0326)。market: '2'=沪(默认) '1'=深。"""
+        return self._query('0326', market)
+
+    def query_trades(self, market: str = None) -> dict:
+        """查询当日成交 (0226)。market: '2'=沪(默认) '1'=深。"""
+        return self._query('0226', market)
+
     # ---------------- 低层逃生口 ----------------
     def send(self, wire_cmd: bytes, plaintext: bytes) -> dict:
         """发送任意已构造明文 (需自行保证 md5签名/字段正确)。"""
@@ -295,6 +337,17 @@ class TradeClient:
         r = self.conn.recv_msg()
         return {'type': r['type'], 'plaintext': r['plaintext'],
                 'text': r['plaintext'].decode('gbk', 'replace').replace('\x00', '')}
+
+
+def _gbk_runs(pt: bytes, min_bytes: int = 4) -> list:
+    """提取明文中的GBK文本串 (查询应答的列名表等)。"""
+    out = []
+    for m in re.finditer(rb'(?:[\xa1-\xfe]{2}){%d,}' % (min_bytes // 2), pt):
+        try:
+            out.append(m.group().decode('gbk'))
+        except Exception:
+            pass
+    return out
 
 
 def parse_kv(text: str) -> dict:

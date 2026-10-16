@@ -89,8 +89,8 @@ class TradeClient:
         self.name = name
         self.deptid = deptid          # 营业部ID (None=模板默认1302)
         self.verinfo = verinfo        # 券商标记 (None=模板默认gtja)
-        if len(name.encode('gbk')) != 6:
-            raise ValueError('户名GBK须恰6字节: %r' % name)
+        if not (1 <= len(name.encode('gbk')) <= 6):
+            raise ValueError('户名GBK须1~6字节: %r' % name)
         self.conn = TC.TradeConn(host=host, port=port, timeout=timeout)
         self.info = None          # login() 返回: {'sess','iv','s2c1'}
         self.seq = None           # 消息序号 (登录=1, 之后递增)
@@ -108,6 +108,10 @@ class TradeClient:
         if not prof.get('zjzh'):
             raise FileNotFoundError(
                 '未找到账号配置: 请创建 local_profile.json 或用 TradeClient(zjzh=...) 传参')
+        if prof.get('host'):
+            kw.setdefault('host', prof['host'])
+        if prof.get('port'):
+            kw.setdefault('port', int(prof['port']))
         return cls(zjzh=prof['zjzh'], gdzh_sh=prof.get('gdzh_sh'),
                    gdzh_sz=prof.get('gdzh_sz'), name=prof.get('name', '某某某'),
                    deptid=prof.get('deptid'), verinfo=prof.get('verinfo'), **kw)

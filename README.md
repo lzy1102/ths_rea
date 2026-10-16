@@ -49,6 +49,22 @@ cp local_profile.example.json local_profile.json
 模板中除账号/股东号/户名/营业部外无任何个人字段；同券商换账号预期直接可用
 （尚未用第二账号实测，如需可验证）。
 
+## 字段提取工具（分发给别人用）
+
+别人不需要手抄账号——装好后运行一条命令，工具自动挂载他的 xiadan 客户端，
+等他登录/打开交易界面，自动抓取并解密，输出现成的 `local_profile.json`：
+
+```bash
+pip install "ths-trade-client[capture]"    # 含 frida
+ths-capture-profile                        # 自动找 xiadan.exe
+# 输出: local_profile.json (zjzh/gdzh_sh/gdzh_sz/name/deptid/verinfo/host)
+
+ths-capture-profile --pid 1234 --out my.json --timeout 180   # 可选参数
+```
+
+原理：只挂 ws2_32 的 send/recv/connect（与客户端版本无关），识别柜台连接(fdff帧)，
+登录帧为 zlib 明文、后续帧用 S2C#1 的会话IV解密，提取账号/股东号/户名/营业部/券商标记/柜台地址。
+
 ## 快速开始
 
 ```python

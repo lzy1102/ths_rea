@@ -31,7 +31,7 @@
     会话4字节登录时全零; 登录后回显服务器分配值
     市场: '2'=上海(A开头股东号), '1'=深圳(数字股东号)
 """
-__version__ = "0.5.2"
+__version__ = "0.6.0"
 
 from . import machine  # noqa: E402
 from .client import TradeClient, parse_kv  # noqa: E402

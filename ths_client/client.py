@@ -78,7 +78,7 @@ class TradeClient:
                  name: str = '某某某', deptid=None, verinfo: str = None,
                  host: str = TC.COUNTER_HOST,
                  port: int = TC.COUNTER_PORT, timeout: float = 20.0,
-                 hosts: list = None):
+                 hosts: list = None, machine_info: dict = None):
         """
         zjzh: 资金账号 (如 12345678)
         gdzh_sh/gdzh_sz: 沪/深股东号 (沪市A开头如A123456789; 深市数字如0123456789)
@@ -91,6 +91,7 @@ class TradeClient:
         self.deptid = deptid          # 营业部ID (None=模板默认1302)
         self.verinfo = verinfo        # 券商标记 (None=模板默认gtja)
         self.hosts = hosts or []      # 备用站点 [{'ip','port'}...] 连接失败自动切换
+        self.machine_info = machine_info  # 设备信息 (抓包提取; None=程序自行采集)
         if not (1 <= len(name.encode('gbk')) <= 6):
             raise ValueError('户名GBK须1~6字节: %r' % name)
         self.conn = TC.TradeConn(host=host, port=port, timeout=timeout)
@@ -116,6 +117,8 @@ class TradeClient:
             kw.setdefault('port', int(prof['port']))
         if prof.get('hosts'):
             kw.setdefault('hosts', prof['hosts'])
+        if prof.get('machine'):
+            kw.setdefault('machine_info', prof['machine'])
         return cls(zjzh=prof['zjzh'], gdzh_sh=prof.get('gdzh_sh'),
                    gdzh_sz=prof.get('gdzh_sz'), name=prof.get('name', '某某某'),
                    deptid=prof.get('deptid'), verinfo=prof.get('verinfo'), **kw)
@@ -156,7 +159,7 @@ class TradeClient:
         pt = bytearray(TM.build_login(login_zh=self.zjzh, local_ip=lip, localport=lport,
                                       server_ip=self.conn.host, name=self.name,
                                       deptid=self.deptid, verinfo=self.verinfo))
-        _machine.patch(pt)                     # 注入真实机器信息 (MAC/CPU/序列号等)
+        _machine.patch(pt, info=self.machine_info)   # 设备信息 (配置优先, 否则自采集)
         self.info = self.conn.login(bytes(pt))
         self.seq = TM.MsgSeq(2)                    # 登录已用 seq=1
         tick0 = struct.unpack('<I', pt[0x88:0x8c])[0]
@@ -186,7 +189,8 @@ class TradeClient:
                                    zjzh=self.zjzh, gdzh_sh=self.gdzh_sh,
                                    gdzh_sz=self.gdzh_sz,
                                    name_gbk=self.name.encode('gbk'),
-                                   deptid=self.deptid, verinfo=self.verinfo)
+                                   deptid=self.deptid, verinfo=self.verinfo,
+                                   machine_info=self.machine_info)
         if include_sh:
             outs += self.bootstrap_sh()
         return outs
@@ -198,7 +202,8 @@ class TradeClient:
                                    tpl_dir=TC.STARTUP_SH_DIR, zjzh=self.zjzh,
                                    gdzh_sh=self.gdzh_sh, gdzh_sz=self.gdzh_sz,
                                    name_gbk=self.name.encode('gbk'),
-                                   deptid=self.deptid, verinfo=self.verinfo)
+                                   deptid=self.deptid, verinfo=self.verinfo,
+                                   machine_info=self.machine_info)
 
     # ---------------- 业务 ----------------
     def _gdzh_for(self, market: str) -> str:

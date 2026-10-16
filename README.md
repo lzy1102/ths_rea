@@ -66,8 +66,12 @@ ths-capture-profile                        # 自动找 xiadan.exe
 ths-capture-profile --pid 1234 --out my.json --timeout 180   # 可选参数
 ```
 
-同时从 xiadan 安装目录的 `RES/Zyy/ServerAddress/*_WT_SERVER` 解析**完整委托站点列表**
-（按抓到的柜台IP匹配对应券商），输出到 profile 的 `hosts` 字段。
+同时提取：
+- **设备信息**（hardwarecode/macinfo/cpuinfo/计算机名/卷序列号/GUID 等 9 项，从真客户端
+  登录帧原样抓取）→ profile 的 `machine` 字段。使用时**配置优先，没有则程序自行采集**
+  （Linux/Docker 下用抓包值可保持与真客户端完全一致的指纹）
+- **完整委托站点列表**（从 xiadan 安装目录 `RES/Zyy/ServerAddress/*_WT_SERVER` 解析，
+  按抓到的柜台IP匹配对应券商）→ profile 的 `hosts` 字段
 
 原理：只挂 ws2_32 的 send/recv/connect（与客户端版本无关），识别柜台连接(fdff帧)，
 登录帧为 zlib 明文、后续帧用 S2C#1 的会话IV解密，提取账号/股东号/户名/营业部/券商标记/柜台地址。

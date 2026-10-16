@@ -136,6 +136,15 @@ def extract_from_streams(c2s: dict, s2c: dict, conns: dict):
             prof['deptid'] = d
         if v:
             prof['verinfo'] = v
+        # 设备信息: 从真客户端登录帧原样提取 (跨平台最真实; 缺失时程序自行采集)
+        mach = {}
+        for k in ('hardwarecode', 'macinfo', 'cpuinfo', 'computername', 'hddinfo',
+                  'guid', 'vol', 'virtual', 'bios_date'):
+            val = _kv(t, k)
+            if val:
+                mach[k] = val
+        if mach:
+            prof['machine'] = mach
 
     # 3) 会话IV (S2C#1: type0x50 含 WTServer-DES)
     iv = None

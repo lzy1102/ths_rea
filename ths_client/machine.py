@@ -1,23 +1,27 @@
 # -*- coding: utf-8 -*-
-"""真实机器信息采集与注入。
+"""真实机器信息采集与注入 (Windows / Linux)。
 
 登录帧/0030校验股东帧中的 hardwarecode/macinfo/cpuinfo 等字段服务端实测
 不校验(占位值也能登录), 但采集真实值更自然(避免全零指纹)。
 
-采集项 (Windows 优先, 其他平台降级为占位值):
+采集项:
     hardwarecode = BIOS:<md5(bios序列号)>,HDD:<md5(磁盘序列号)>,MAC:<mac1>,
-                   PI:C^<文件系统>^<容量G>G,VOL:<卷序列号>,VOLNAME:<卷标>
-    macinfo      = MAC1^MAC2^MAC3^MAC4
+                   PI:<盘>^<文件系统>^<容量G>G,VOL:<卷序列号>,VOLNAME:<卷标>
+    macinfo      = MAC1^MAC2^...
     cpuinfo / computername / hddinfo / guid / vol / virtual / bios_date
+
+Windows: wmic(快)/PowerShell CIM(兜底)/注册表/GetVolumeInformationW
+Linux:   /sys/class/dmi/id、/proc/cpuinfo、/sys/class/net、/etc/machine-id、
+         lsblk、/dev/disk/by-uuid (无需root; 缺项自动降级, 不阻断登录)
 """
 import ctypes
+import glob as _glob
 import hashlib
 import os
 import platform
 import re
 import socket
 import subprocess
-import sys
 from functools import lru_cache
 
 __all__ = ['collect', 'patch', 'FIELDS']
@@ -27,6 +31,7 @@ FIELDS = ('hardwarecode', 'macinfo', 'cpuinfo', 'computername', 'hddinfo',
           'guid', 'vol', 'virtual', 'bios_date')
 
 _NO_WINDOW = 0x08000000 if os.name == 'nt' else 0
+_IS_WIN = os.name == 'nt'
 
 
 def _run(cmd, timeout=8):
@@ -38,16 +43,35 @@ def _run(cmd, timeout=8):
         return ''
 
 
+def _read(path):
+    try:
+        with open(path, encoding='utf-8', errors='replace') as f:
+            return f.read().strip()
+    except OSError:
+        return ''
+
+
 def _macs():
-    """全部网卡MAC (Windows: getmac; 其他: uuid.getnode 单个)。"""
+    """全部网卡MAC (Win: getmac; Linux: /sys/class/net; 兜底 uuid.getnode)。"""
     macs = []
-    out = _run(['getmac', '/fo', 'csv', '/nh'])
-    for line in out.splitlines():
-        m = re.search(r'"([0-9A-Fa-f]{2}(?:-[0-9A-Fa-f]{2}){5})"', line)
-        if m:
-            mac = m.group(1).replace('-', ':').upper()
-            if mac not in macs:
-                macs.append(mac)
+    if _IS_WIN:
+        out = _run(['getmac', '/fo', 'csv', '/nh'])
+        for line in out.splitlines():
+            m = re.search(r'"([0-9A-Fa-f]{2}(?:-[0-9A-Fa-f]{2}){5})"', line)
+            if m:
+                mac = m.group(1).replace('-', ':').upper()
+                if mac not in macs:
+                    macs.append(mac)
+    else:
+        try:
+            for d in sorted(os.listdir('/sys/class/net')):
+                if d == 'lo':
+                    continue
+                a = _read('/sys/class/net/%s/address' % d).upper()
+                if a and a != '00:00:00:00:00:00' and a not in macs:
+                    macs.append(a)
+        except OSError:
+            pass
     if not macs:
         import uuid
         n = uuid.getnode()
@@ -56,6 +80,7 @@ def _macs():
     return macs
 
 
+# ---------------- Windows ----------------
 def _win_reg(path, name):
     try:
         import winreg
@@ -65,8 +90,8 @@ def _win_reg(path, name):
         return ''
 
 
-def _volume_info(drive='C:\\'):
-    """卷序列号/卷标/文件系统 (ctypes, 无需子进程)。"""
+def _win_volume(drive='C:\\'):
+    """卷序列号/卷标/文件系统 (ctypes)。"""
     try:
         vol_ser = ctypes.c_ulong(0)
         fs = ctypes.create_unicode_buffer(261)
@@ -81,13 +106,96 @@ def _volume_info(drive='C:\\'):
     return '', '', ''
 
 
-def _wmic(cls, prop):
-    """wmic 快速查询 (Win10/11 多数仍可用); 返回首行值。"""
+def _win_wmic(cls, prop):
     out = _run(['wmic', 'path', 'Win32_' + cls, 'get', prop, '/value'])
     for line in out.splitlines():
         if '=' in line:
             return line.split('=', 1)[1].strip()
     return ''
+
+
+def _win_collect(info):
+    bios_sn = _win_wmic('BIOS', 'SerialNumber')
+    disk_sn = _win_wmic('DiskDrive', 'SerialNumber')
+    cpu_name = _win_wmic('Processor', 'Name')
+    if not (bios_sn or disk_sn or cpu_name):   # Win11 新版无wmic, 用CIM
+        out = _run(['powershell', '-NoProfile', '-Command',
+                    "$b=Get-CimInstance Win32_BIOS;$d=Get-CimInstance Win32_DiskDrive|"
+                    "Select-Object -First 1;$c=Get-CimInstance Win32_Processor|"
+                    "Select-Object -First 1;Write-Output "
+                    "($b.SerialNumber+'|'+$d.SerialNumber+'|'+$c.Name)"])
+        parts = out.split('|')
+        if len(parts) == 3:
+            bios_sn, disk_sn, cpu_name = (p.strip() for p in parts)
+    guid = _win_reg(r'SOFTWARE\Microsoft\Cryptography', 'MachineGuid')
+    if guid:
+        info['guid'] = '{' + guid.upper() + '}'
+    info['virtual'] = _win_reg(r'HARDWARE\DESCRIPTION\System\BIOS', 'SystemManufacturer')
+    d = _win_reg(r'HARDWARE\DESCRIPTION\System\BIOS', 'BIOSReleaseDate')  # 05/21/2015
+    m = re.match(r'(\d{2})/(\d{2})/(\d{4})', d)
+    if m:
+        info['bios_date'] = m.group(3) + m.group(1) + m.group(2)
+    volser, label, fs = _win_volume('C:\\')
+    return bios_sn, disk_sn, cpu_name, volser, label, fs or 'NTFS', 'C'
+
+
+# ---------------- Linux ----------------
+def _linux_collect(info):
+    bios_sn = _read('/sys/class/dmi/id/product_serial') or _read('/sys/class/dmi/id/board_serial')
+    info['virtual'] = _read('/sys/class/dmi/id/sys_vendor')
+    d = _read('/sys/class/dmi/id/bios_date')   # MM/DD/YYYY
+    m = re.match(r'(\d{2})/(\d{2})/(\d{4})', d)
+    if m:
+        info['bios_date'] = m.group(3) + m.group(1) + m.group(2)
+    cpu_name = ''
+    try:
+        with open('/proc/cpuinfo', encoding='utf-8', errors='replace') as f:
+            for line in f:
+                if line.lower().startswith('model name'):
+                    cpu_name = line.split(':', 1)[1].strip()
+                    break
+    except OSError:
+        pass
+    disk_sn = ''
+    for line in _run(['lsblk', '-dno', 'SERIAL']).splitlines():
+        if line.strip():
+            disk_sn = line.strip()
+            break
+    mid = _read('/etc/machine-id') or _read('/var/lib/dbus/machine-id')
+    if len(mid) >= 32:
+        mid = mid[:32].upper()
+        info['guid'] = '{%s-%s-%s-%s-%s}' % (mid[:8], mid[8:12], mid[12:16], mid[16:20], mid[20:32])
+    # 根文件系统 UUID 作为"卷序列号"
+    volser = ''
+    try:
+        rootdev = None
+        with open('/proc/mounts', encoding='utf-8', errors='replace') as f:
+            for line in f:
+                p = line.split()
+                if len(p) >= 3 and p[1] == '/' and p[0].startswith('/dev/'):
+                    rootdev = p[0]
+                    break
+        if rootdev:
+            rp = os.path.realpath(rootdev)
+            for link in sorted(_glob.glob('/dev/disk/by-uuid/*')):
+                if os.path.realpath(link) == rp:
+                    u = os.path.basename(link).replace('-', '')[:8]
+                    volser = u[:4] + '-' + u[4:8]
+                    break
+    except OSError:
+        pass
+    fs = ''
+    try:
+        with open('/proc/mounts', encoding='utf-8', errors='replace') as f:
+            for line in f:
+                p = line.split()
+                if len(p) >= 3 and p[1] == '/':
+                    fs = p[2]
+                    break
+    except OSError:
+        pass
+    label = _run(['findmnt', '-no', 'LABEL', '/'])
+    return bios_sn, disk_sn, cpu_name, volser, label, fs or 'ext4', '/'
 
 
 @lru_cache(maxsize=1)
@@ -97,45 +205,20 @@ def collect() -> dict:
         'hardwarecode': '', 'macinfo': '', 'cpuinfo': '', 'computername': '',
         'hddinfo': '', 'guid': '', 'vol': '', 'virtual': '', 'bios_date': '',
     }
-    # --- BIOS序列号 / 磁盘序列号 / CPU名称 (wmic 快, 失败退 PowerShell CIM) ---
-    bios_sn = disk_sn = cpu_name = ''
-    if os.name == 'nt':
-        bios_sn = _wmic('BIOS', 'SerialNumber')
-        disk_sn = _wmic('DiskDrive', 'SerialNumber')
-        cpu_name = _wmic('Processor', 'Name')
-        if not (bios_sn or disk_sn or cpu_name):
-            out = _run(['powershell', '-NoProfile', '-Command',
-                        "$b=Get-CimInstance Win32_BIOS;$d=Get-CimInstance Win32_DiskDrive|"
-                        "Select-Object -First 1;$c=Get-CimInstance Win32_Processor|"
-                        "Select-Object -First 1;Write-Output "
-                        "($b.SerialNumber+'|'+$d.SerialNumber+'|'+$c.Name)"])
-            parts = out.split('|')
-            if len(parts) == 3:
-                bios_sn, disk_sn, cpu_name = (p.strip() for p in parts)
+    if _IS_WIN:
+        bios_sn, disk_sn, cpu_name, volser, label, fs, drive = _win_collect(info)
+    else:
+        bios_sn, disk_sn, cpu_name, volser, label, fs, drive = _linux_collect(info)
 
     info['cpuinfo'] = cpu_name or platform.processor() or 'Intel(R) Core(TM) CPU'
     info['computername'] = socket.gethostname()
     info['hddinfo'] = disk_sn
+    info['vol'] = volser
     macs = _macs()
     info['macinfo'] = '^'.join(macs) if macs else '00:00:00:00:00:00'
-
-    # GUID / 厂商 / BIOS日期 (注册表)
-    if os.name == 'nt':
-        guid = _win_reg(r'SOFTWARE\Microsoft\Cryptography', 'MachineGuid')
-        if guid:
-            info['guid'] = '{' + guid.upper() + '}'
-        info['virtual'] = _win_reg(r'HARDWARE\DESCRIPTION\System\BIOS', 'SystemManufacturer')
-        d = _win_reg(r'HARDWARE\DESCRIPTION\System\BIOS', 'BIOSReleaseDate')  # 05/21/2015
-        m = re.match(r'(\d{2})/(\d{2})/(\d{4})', d)
-        if m:
-            info['bios_date'] = m.group(3) + m.group(1) + m.group(2)
-
-    # 卷序列号/卷标/文件系统/容量
-    volser, vollabel, fs = _volume_info('C:\\' if os.name == 'nt' else '/')
-    info['vol'] = volser
     try:
         import shutil
-        total_g = int(shutil.disk_usage('C:\\' if os.name == 'nt' else '/').total // (1 << 30))
+        total_g = int(shutil.disk_usage('/').total // (1 << 30))
     except Exception:
         total_g = 0
 
@@ -145,7 +228,7 @@ def collect() -> dict:
     info['hardwarecode'] = (
         'BIOS:%s,HDD:%s,MAC:%s,PI:%s^%s^%dG,VOL:%s,VOLNAME:%s' % (
             md5u(bios_sn), md5u(disk_sn), macs[0] if macs else '00:00:00:00:00:00',
-            'C' if os.name == 'nt' else '/', fs or 'NTFS', total_g, volser, vollabel))
+            drive, fs, total_g, volser, label))
     return info
 
 

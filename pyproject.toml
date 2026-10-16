@@ -5,25 +5,30 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ths-trade-client"
 version = "0.8.0"
-description = "同花顺柜台交易协议纯Python客户端 (登录/启动序列/0124预检/0221市价委托)"
+description = "同花顺柜台交易协议纯Python客户端 (登录/启动序列/预检/沪市市价买卖)"
 readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "MIT" }
 authors = [{ name = "ths_rea" }]
 keywords = ["ths", "同花顺", "trade", "trading", "a-share"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Topic :: Office/Business :: Financial :: Investment",
+]
 dependencies = [
     "pycryptodome>=3.10",
-    "requests>=2.20",
 ]
 
 [project.optional-dependencies]
 capture = ["frida>=16.0"]
+legacy = ["requests>=2.20"]
 
 [project.scripts]
 ths-capture-profile = "ths_client.capture_profile:main"
 
 [project.urls]
-Homepage = "https://example.invalid/ths-trade-client"
+Homepage = "https://github.com/lzy1102/ths_rea"
 
 [tool.setuptools.packages.find]
 include = ["ths_client*"]

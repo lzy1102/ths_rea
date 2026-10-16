@@ -34,6 +34,6 @@
 __version__ = "0.8.0"
 
 from . import machine  # noqa: E402
-from .client import TradeClient, parse_kv  # noqa: E402
+from .client import TradeClient, load_profile, parse_kv  # noqa: E402
 
-__all__ = ['TradeClient', 'parse_kv', 'machine', '__version__']
+__all__ = ['TradeClient', 'load_profile', 'parse_kv', 'machine', '__version__']

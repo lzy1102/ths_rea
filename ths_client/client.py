@@ -166,6 +166,16 @@ class TradeClient:
         self._tick_base = (tick0, time.monotonic())
         return self.info
 
+    def start(self) -> dict:
+        """一步到位: connect + login + bootstrap(标准+沪市)。返回 login info。
+
+        推荐用法: cli = TradeClient.from_profile(); cli.start()
+        之后即可 precheck/buy_market/sell_market。"""
+        self.connect()
+        info = self.login()
+        self.bootstrap(include_sh=True)
+        return info
+
     def _local_ip(self) -> str:
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

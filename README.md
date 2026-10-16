@@ -97,9 +97,8 @@ cli = TradeClient.from_profile()          # 或 from_profile('D:/my/ths.json')
 cli = TradeClient(zjzh='12345678', gdzh_sh='A123456789', gdzh_sz='0123456789',
                   name='某某某')
 
-cli.connect()
-cli.login()                    # 问候+登录 (自动会话/IV)
-cli.bootstrap(include_sh=True) # 启动序列 (必须; 沪市必须含SH组)
+cli.start()                    # 一步到位: 连接+登录+启动序列(标准+沪市)
+# 等价于: cli.connect(); cli.login(); cli.bootstrap(include_sh=True)
 
 # 只读预检 (返回行情/可买数量等)
 r = cli.precheck('601398', qty=100)

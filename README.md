@@ -159,13 +159,13 @@ from ths_client import TradeClient, load_profile, parse_kv, machine
 # 1. 安装抓包依赖
 pip install "ths-trade-client[capture]"
 
-# 2. 打开同花顺 → 进入下单程序（xiadan）
-
-# 3. 运行工具（自动查找 xiadan.exe）
+# 2. 运行工具（xiadan 没开也没关系, 工具会等待其启动）
 ths-capture-profile
 
-#    挂载成功后，在客户端里正常操作（登录/打开交易界面）即可
-#    抓全后自动退出并写出 local_profile.json
+# 3. 触发一次登录:
+#    · 若交易窗口已开着  -> 关闭后重新打开 (或重启 xiadan)
+#    · 若刚打开同花顺    -> 直接进入下单程序即可
+#    工具自动抓取, 完成后自动退出并写出 local_profile.json
 ```
 
 ### 参数

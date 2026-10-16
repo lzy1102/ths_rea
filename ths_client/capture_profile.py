@@ -290,8 +290,16 @@ def main(argv=None):
 
     pid = a.pid or _find_xiadan_pid()
     if not pid:
-        print('未找到 xiadan.exe, 请先启动客户端或用 --pid 指定', file=sys.stderr)
-        return 2
+        print(f'未找到 xiadan.exe, 等待其启动... (最多 {a.timeout}s, 现在可以打开同花顺下单程序)')
+        t0 = time.time()
+        while time.time() - t0 < a.timeout:
+            time.sleep(2)
+            pid = _find_xiadan_pid()
+            if pid:
+                break
+        if not pid:
+            print('等待超时: 请先打开同花顺并进入下单程序, 或用 --pid 指定进程', file=sys.stderr)
+            return 2
     print(f'挂载 xiadan.exe PID={pid} ...')
     session = frida.attach(pid)
     script = session.create_script(JS)
@@ -306,7 +314,10 @@ def main(argv=None):
         ev = p.get('ev')
         if ev == 'ready':
             state['ready'] = True
-            print('已挂载。请在客户端完成登录并打开交易界面 (工具会自动抓取)...')
+            print('已挂载。请让客户端完成一次登录:')
+            print('  · 若交易窗口已开着 -> 关闭后重新打开 (或重启 xiadan)')
+            print('  · 若刚打开同花顺 -> 直接进入下单程序即可')
+            print('工具会自动抓取, 完成后自动退出。')
         elif ev == 'fatal':
             print('挂钩失败:', p.get('err'), file=sys.stderr)
         elif ev == 'module':

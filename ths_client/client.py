@@ -75,7 +75,8 @@ class TradeClient:
     """柜台交易客户端。一个实例 = 一条柜台TCP连接。"""
 
     def __init__(self, zjzh: str, *, gdzh_sh: str = None, gdzh_sz: str = None,
-                 name: str = '某某某', host: str = TC.COUNTER_HOST,
+                 name: str = '某某某', deptid=None, verinfo: str = None,
+                 host: str = TC.COUNTER_HOST,
                  port: int = TC.COUNTER_PORT, timeout: float = 20.0):
         """
         zjzh: 资金账号 (如 12345678)
@@ -86,6 +87,8 @@ class TradeClient:
         self.gdzh_sh = gdzh_sh
         self.gdzh_sz = gdzh_sz
         self.name = name
+        self.deptid = deptid          # 营业部ID (None=模板默认1302)
+        self.verinfo = verinfo        # 券商标记 (None=模板默认gtja)
         if len(name.encode('gbk')) != 6:
             raise ValueError('户名GBK须恰6字节: %r' % name)
         self.conn = TC.TradeConn(host=host, port=port, timeout=timeout)
@@ -106,7 +109,8 @@ class TradeClient:
             raise FileNotFoundError(
                 '未找到账号配置: 请创建 local_profile.json 或用 TradeClient(zjzh=...) 传参')
         return cls(zjzh=prof['zjzh'], gdzh_sh=prof.get('gdzh_sh'),
-                   gdzh_sz=prof.get('gdzh_sz'), name=prof.get('name', '某某某'), **kw)
+                   gdzh_sz=prof.get('gdzh_sz'), name=prof.get('name', '某某某'),
+                   deptid=prof.get('deptid'), verinfo=prof.get('verinfo'), **kw)
 
     # ---------------- 连接/登录 ----------------
     def connect(self, bind_port: int = 0, dump_dir: str = None):
@@ -129,7 +133,8 @@ class TradeClient:
         lip = self._local_ip()
         lport = self.conn.sock.getsockname()[1]
         pt = bytearray(TM.build_login(login_zh=self.zjzh, local_ip=lip, localport=lport,
-                                      server_ip=self.conn.host, name=self.name))
+                                      server_ip=self.conn.host, name=self.name,
+                                      deptid=self.deptid, verinfo=self.verinfo))
         _machine.patch(pt)                     # 注入真实机器信息 (MAC/CPU/序列号等)
         self.info = self.conn.login(bytes(pt))
         self.seq = TM.MsgSeq(2)                    # 登录已用 seq=1
@@ -159,7 +164,8 @@ class TradeClient:
         outs = self.conn.bootstrap(self.info['iv'], seq=self.seq, tick=self.tick(),
                                    zjzh=self.zjzh, gdzh_sh=self.gdzh_sh,
                                    gdzh_sz=self.gdzh_sz,
-                                   name_gbk=self.name.encode('gbk'))
+                                   name_gbk=self.name.encode('gbk'),
+                                   deptid=self.deptid, verinfo=self.verinfo)
         if include_sh:
             outs += self.bootstrap_sh()
         return outs
@@ -170,7 +176,8 @@ class TradeClient:
         return self.conn.bootstrap(self.info['iv'], seq=self.seq, tick=self.tick(),
                                    tpl_dir=TC.STARTUP_SH_DIR, zjzh=self.zjzh,
                                    gdzh_sh=self.gdzh_sh, gdzh_sz=self.gdzh_sz,
-                                   name_gbk=self.name.encode('gbk'))
+                                   name_gbk=self.name.encode('gbk'),
+                                   deptid=self.deptid, verinfo=self.verinfo)
 
     # ---------------- 业务 ----------------
     def _gdzh_for(self, market: str) -> str:

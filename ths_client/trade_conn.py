@@ -223,7 +223,8 @@ class TradeConn:
     # ---- 启动序列 ----
     def bootstrap(self, iv: bytes, seq=None, tick: int = None,
                   tpl_dir: str = None, zjzh: str = None, gdzh_sh: str = None,
-                  gdzh_sz: str = None, name_gbk: bytes = None) -> list:
+                  gdzh_sz: str = None, name_gbk: bytes = None,
+                  deptid=None, verinfo: str = None) -> list:
         """回放启动序列 (0030校验股东/0526帐户/0126/0326/0226) 建立账户上下文。
 
         不做这一步, 业务消息 (0124/0221) 会回 "数据包无效：帐户无效"。
@@ -248,6 +249,7 @@ class TradeConn:
             pt = bytearray(f.read_bytes())
             TM.patch_account(pt, zjzh=zjzh, gdzh_sh=gdzh_sh, gdzh_sz=gdzh_sz,
                              name_gbk=name_gbk)
+            TM.patch_broker(pt, deptid=deptid, verinfo=verinfo)
             _machine.patch(pt)
             pt[0x02:0x06] = self.sess
             if tick is not None:

@@ -34,6 +34,7 @@
 import base64
 import hashlib
 import os
+import re
 import struct
 import time
 
@@ -109,6 +110,23 @@ PH_ZJZH = '12345678'
 PH_GDZH_SH = 'A123456789'
 PH_GDZH_SZ = '0123456789'
 PH_NAME = '某某某'
+
+
+def patch_broker(pt: bytearray, deptid=None, verinfo: str = None) -> bytearray:
+    """替换券商/营业部级字段 (登录+0030模板内; 换券商/营业部时配置)。
+
+    deptid: 营业部ID (默认1302); verinfo: 券商标记 (默认gtja=国泰君安/国泰海通)。
+    换其他券商时需按该券商重新抓包确认取值。
+    """
+    if len(pt) <= 0x12b:
+        return pt
+    tail = bytes(pt[0x12b:])
+    if deptid:
+        tail = re.sub(rb'deptid=[^\n\x00]*', b'deptid=' + str(deptid).encode(), tail)
+    if verinfo:
+        tail = re.sub(rb'verinfo=[^\n\x00]*', b'verinfo=' + str(verinfo).encode(), tail)
+    pt[0x12b:] = tail
+    return pt
 
 
 def patch_account(pt: bytearray, zjzh: str = None, gdzh_sh: str = None,
@@ -232,7 +250,8 @@ def build_precheck(code: str, *, sess: bytes, zjzh: str, gdzh: str, tick: int = 
 
 
 def build_login(*, login_zh: str, local_ip: str, localport: int,
-                server_ip: str, name: str = None) -> bytes:
+                server_ip: str, name: str = None, deptid=None,
+                verinfo: str = None) -> bytes:
     """构造 C2S#1 登录明文 (1132B模板+补丁)。
 
     模板内账号/姓名/硬件指纹为脱敏占位符; login_zh 必传,
@@ -244,6 +263,7 @@ def build_login(*, login_zh: str, local_ip: str, localport: int,
     if name_gbk is not None and len(name_gbk) != 6:
         raise ValueError('户名GBK须恰6字节: %r' % name)
     patch_account(b, zjzh=login_zh, name_gbk=name_gbk)
+    patch_broker(b, deptid=deptid, verinfo=verinfo)
     text = _retable(bytes(b[0x12b:]), {
         'login_zh': login_zh,
         'localip': local_ip.replace('.', '_'),

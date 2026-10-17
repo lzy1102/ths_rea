@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
-"""深市委托抓包: 挂 xiadan.exe 的 ws2_32, 全量落盘收发帧 (供离线解密提取模板)。
+"""委托报文抓包 (买卖/撤单/查询通用): 挂 xiadan.exe 的 ws2_32, 全量落盘收发帧 (供离线解密提取模板)。
 
 用法:
-    python tools/sz_capture.py [--pid N] [--out captures/sz_cap] [--timeout 600]
+    ths-capture-orders [--pid N] [--out captures/sz_cap] [--timeout 600]
+    python -m ths_client.capture_orders [--pid N] [--out ...] [--timeout ...]
 
 流程: 启动本工具 -> 重新打开下单窗口(产生新连接+登录) -> 做深市委托操作。
 落盘: out/NNN_C2S.bin / NNN_S2C.bin + _meta.jsonl (sock/长度/时间戳)。
@@ -95,7 +96,7 @@ def scan_cmds(buf: bytes):
 
 
 def main():
-    ap = argparse.ArgumentParser(description='深市委托抓包 (ws2_32 全量落盘)')
+    ap = argparse.ArgumentParser(description='委托报文抓包 (ws2_32全量落盘 + 抓后自动扫IV解密)')
     ap.add_argument('--pid', type=int, help='xiadan.exe PID (缺省自动查找)')
     ap.add_argument('--out', default='captures/sz_cap', help='输出目录')
     ap.add_argument('--timeout', type=int, default=600, help='抓包窗口秒数')
@@ -231,8 +232,7 @@ def scan_and_decrypt(outdir: Path, pid: int, extra_ivs: list = None):
     """
     try:
         import zlib
-        sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-        from ths_client.trade_crypt.body_codec import _des_cbc
+        from .trade_crypt.body_codec import _des_cbc
     except ImportError as e:
         print(f'  [后处理] 缺少依赖({e}), 跳过解密')
         return

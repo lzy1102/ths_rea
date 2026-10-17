@@ -212,12 +212,12 @@ ths-capture-profile
 
 ### 委托报文抓包 (扩展协议用)
 
-`tools/sz_capture.py` — 挂 xiadan.exe 的 ws2_32 全量落盘收发帧，抓完后自动
+`ths-capture-orders (pip 命令) / ths_client/capture_orders.py` — 挂 xiadan.exe 的 ws2_32 全量落盘收发帧，抓完后自动
 扫描客户端内存中的密钥描述符 (KEY 特征码 `b181838083888d81` + IV 槽) 恢复会话 IV，
 **无需重连也能解密全部柜台帧**，产物为 `dec_*_<cmd>.bin` 明文：
 
 ```bash
-python tools/sz_capture.py --timeout 600    # 期间在客户端做对应操作(如深市卖出)
+ths-capture-orders --timeout 600    # 期间在客户端做对应操作(如深市卖出)
 # 结束后自动输出: dec_*_0221.bin / dec_*_0321.bin ... (明文模板)
 ```
 
@@ -459,7 +459,7 @@ A股交易时间外（9:30-11:30 / 13:00-15:00）柜台不接单。盘后登录/
   menuid=买161/卖162(市价471/472)、workid=沪买5/沪卖7/深买6/深卖8。
 - 撤单/北交所: 尚未支持。北交所/三板代码 (43/83/87/88/920 前缀) 会明确拒绝,
   不会误发到错误市场。(扩展北交所需: 账户开通北交所权限 + 抓包一次北交所委托)
-（需要扩展时用 `tools/sz_capture.py` 抓一次真客户端对应操作即可。）
+（需要扩展时用 `ths-capture-orders (pip 命令) / ths_client/capture_orders.py` 抓一次真客户端对应操作即可。）
 
 **Q: 换一台机器/换账号要改什么？**
 重跑 `ths-capture-profile` 生成新配置即可（或手改 `local_profile.json`）。

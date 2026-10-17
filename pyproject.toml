@@ -26,6 +26,7 @@ legacy = ["requests>=2.20"]
 
 [project.scripts]
 ths-capture-profile = "ths_client.capture_profile:main"
+ths-capture-orders = "ths_client.capture_orders:main"
 
 [project.urls]
 Homepage = "https://github.com/lzy1102/ths_rea"

@@ -346,6 +346,14 @@ r = cli.query_positions(market='2')   # 持仓/股票余额 (0126); '1'=深市
 r = cli.query_orders(market='2')      # 当日委托 (0326)
 r = cli.query_trades(market='2')      # 当日成交 (0226)
 b = cli.query_balance(market='2')     # 资金明细/余额 (0226 资金查询模板)
+a = cli.account_info()               # 账户信息 (沪/深股东号+资金账号, 取自启动应答)
+o = cli.market_options()             # 柜台支持的委托类型
+allq = cli.query_all(market='2')      # 一次性拉取上面四项
+c = cli.cached_query('orders')        # 读取启动序列缓存的应答(不发请求)
+
+# 全参数形式 (market/date/page_roll/dataid/menuid 均可传)
+cli.query_positions(market='1', date='20261016', page_roll=1, dataid='S', menuid=161)
+cli.query_balance(both_markets=True, date='20261016')   # 沪深合并
 
 # 每个查询返回:
 #   plaintext  原始应答明文        columns  列名表(GBK)
@@ -357,9 +365,15 @@ print(r['stats'])      # SX=2.0&SXL=... 会话统计
 print(r['plaintext'])  # 原始应答明文(记录体为客户端 hd1.0 二进制格式)
 ```
 
-> 注：查询请求/应答链路已验证（与启动序列同一批报文）；应答中的记录体为
-> 客户端 `hd1.0` 二进制格式，结构化解码为后续版本计划。盘后柜台可能返回
-> `转发错误[88005]`（日终清算/维护），交易时段正常。
+> **参数说明**：`market` '2'=沪/'1'=深；`date` 交易日期 YYYYMMDD（补 jzrq/qsrq）；
+> `page_roll` 分页号；`dataid` 数据标识（H=沪/S=深）；`menuid` 菜单号。
+>
+> **返回字段**：`ok` / `columns` 列名表 / `rows` 行标签 / `fields` hd1.0 二进制字段
+> `[(tag,a,b)…]` / `count` 字段数 / `stats` 会话统计 / `plaintext`+`text` 原始明文。
+> 数值语义（可用余额/市值/持仓数量）待账户有资金/持仓后对比两次查询确认字段含义。
+>
+> **委托/成交查询**：柜台对 0326/0226 有会话状态限制（单独重放回"无效请求"），
+> 此时自动回退到 `start()` 启动序列中已收到的完整应答（`from_cache=True`）。
 
 ### 低层接口（高级用法）
 

@@ -98,6 +98,7 @@ class TradeClient:
             raise ValueError('户名GBK须1~6字节: %r' % name)
         self.conn = TC.TradeConn(host=host, port=port, timeout=timeout)
         self.info = None          # login() 返回: {'sess','iv','s2c1'}
+        self.startup_outs = []     # start() 启动应答缓存 (account_info/cached_query 用)
         self.seq = None           # 消息序号 (登录=1, 之后递增)
         self._tick_base = None    # (tick0, monotonic0)
 
@@ -175,7 +176,7 @@ class TradeClient:
         之后即可 precheck/buy_market/sell_market。"""
         self.connect()
         info = self.login()
-        self.bootstrap(include_sh=True)
+        self.startup_outs = self.bootstrap(include_sh=True)
         return info
 
     def _local_ip(self) -> str:
@@ -324,14 +325,31 @@ class TradeClient:
         return self._send_recv(cmd, pt)
 
     # ---------------- 查询 (持仓/委托/成交) ----------------
-    def _query(self, tpl_code: str, market: str = None) -> dict:
-        """发送查询模板(0126持仓/0326委托/0226成交)并返回应答。
+    def _parse_query_resp(self, r: dict) -> dict:
+        """解析查询应答 (hd1.0 记录区 + 列名 + 行标签 + 会话统计)。"""
+        d = _parse.parse_hd10(r['plaintext'])
+        r = dict(r)
+        r['columns'] = d['columns'] or _gbk_runs(r['plaintext'])
+        r['rows'] = d['rows']
+        r['fields'] = d['fields']
+        r['count'] = d['count']
+        r['stats'] = d['stats']
+        r['ok'] = bool(r['fields'])
+        return r
 
-        返回 {'type','plaintext','text'} + 'columns'(GBK列名) + 'stats'(SX=...统计)。
-        注: 记录体为客户端 hd1.0 二进制格式, 结构化解码待后续版本。
+    def _send_query(self, pt: bytes, wire: bytes) -> dict:
+        """发送查询报文并解析应答 (统一出口)。"""
+        return self._parse_query_resp(self._send_recv(wire, pt))
+
+    def _tpl_query(self, tpl_code: str, market: str, *, date: str = None,
+                   page_roll: int = None, dataid: str = None, menuid: int = None,
+                   tick: int = None) -> bytes:
+        """构造查询报文 (基于启动序列模板; 可选补 date/page_roll/dataid/menuid 字段)。
+
+        date: 交易日期 YYYYMMDD (补 jzrq/qsrq 两字段); page_roll: 分页号;
+        dataid: 数据标识 (H=沪 S=深 等); menuid: 菜单号。
         """
         import glob
-        market = market or '2'
         tpl_dir = TC.STARTUP_SH_DIR if market == '2' else TC.STARTUP_DIR
         fs = glob.glob(str(Path(tpl_dir) / ('*_' + tpl_code + '_*.bin')))
         if not fs:
@@ -342,54 +360,177 @@ class TradeClient:
         TM.patch_broker(pt, deptid=self.deptid, verinfo=self.verinfo)
         _machine.patch(pt, info=self.machine_info)
         pt[0x02:0x06] = self.info['sess']
-        struct.pack_into('<I', pt, 0x88, self.tick())
+        struct.pack_into('<I', pt, 0x88, tick if tick is not None else self.tick())
         struct.pack_into('<I', pt, 0x8c, self.seq.next())
+        extra = {}
+        if date:
+            extra['jzrq'] = extra['qsrq'] = date
+        if page_roll is not None:
+            extra['page_roll'] = str(int(page_roll))
+        if dataid:
+            extra['dataid'] = dataid
+        if menuid is not None:
+            extra['menuid'] = str(int(menuid))
+        if extra:
+            tail = bytes(pt[0x12b:])
+            pt = bytearray(bytes(pt[:0x12b]) + tail +
+                           ''.join('%s=%s\n' % kv for kv in extra.items()).encode('gbk'))
         pt[8:24] = TM._sign(bytes(pt))
-        wire = bytes([pt[6], pt[7] | 0x20])
-        r = self._send_recv(wire, bytes(pt))
-        d = _parse.parse_hd10(r['plaintext'])
-        r['columns'] = d['columns'] or _gbk_runs(r['plaintext'])
-        r['rows'] = d['rows']
-        r['fields'] = d['fields']
-        r['count'] = d['count']
-        r['stats'] = d['stats']
-        return r
+        return bytes(pt)
 
-    def query_balance(self, market: str = None, date: str = None,
-                      menuid: int = 471) -> dict:
-        """查询资金明细/余额 (0226, 真客户端资金查询模板 552B)。返回 columns/rows/fields/stats。
+    def cached_query(self, kind: str) -> dict:
+        """读取 start() 启动序列中已收到的同类应答 (不发请求)。
 
-        market: '2'=沪(默认) '1'=深; date: 交易日期 YYYYMMDD (缺省今天, 非交易日
-        可能查不到, 可传上一交易日); rows 含 沪A股/本币/可用/可取/冻结市值/市值 等标签;
-        fields 为 hd1.0 二进制字段原始值 —— 数值语义需账户有资金时对比两次查询确认。
+        kind: 'positions'(0126持仓) / 'orders'(0326委托) / 'trades'(0226成交) /
+              'account'(0526账户) / 'menus'(0029菜单)
+        背景: 柜台对 0326/0226 有会话状态限制, 单独重放会回"无效请求";
+        但启动序列里的应答是完整数据 (如 0326 应答含委托序号/数量/价格列)。
+        """
+        prefix = {'positions': bytes([1, 0x26]), 'orders': bytes([3, 0x26]),
+                  'trades': bytes([2, 0x26]), 'account': bytes([5, 0x26]),
+                  'menus': bytes([0, 0x29])}.get(kind)
+        if prefix is None:
+            raise ValueError("kind 须为 positions/orders/trades/account/menus")
+        for wire, r in (self.startup_outs or []):
+            if not isinstance(r, dict) or 'plaintext' not in r:
+                continue
+            if bytes(r.get('wire', wire))[:2] == prefix:
+                out = self._parse_query_resp(r)
+                out['from_cache'] = True
+                return out
+        return {}
+
+    def query_balance(self, market: str = None, date: str = None, menuid: int = 471,
+                      dataid: str = None, page_roll: int = 1, both_markets: bool = False):
+        """查询资金明细/余额 (0226 资金查询模板, 真客户端实测 552B)。
+
+        market: '2'=沪 '1'=深 (缺省 '2'; both_markets=True 时查两市并合并)
+        date: 交易日期 YYYYMMDD (缺省今天; 非交易日可传上一交易日)
+        menuid / dataid / page_roll: 查询上下文 (dataid 缺省按 market 取 H=沪/S=深)
+        返回: {'ok','columns','rows','fields','count','stats','plaintext','text','labels'};
+              both_markets=True 时额外含 'markets': {'2': {...}, '1': {...}}
+        """
+        mkts = ['2', '1'] if both_markets else [market or '2']
+        out = {}
+        for mk in mkts:
+            pt = TM.build_funds_query(sess=self.info['sess'], zjzh=self.zjzh,
+                                      gdzh=self._gdzh_for(mk), market=mk, date=date,
+                                      dataid=dataid, page_roll=page_roll, menuid=menuid,
+                                      name_gbk=self.name.encode('gbk'),
+                                      seq=self.seq, tick=self.tick())
+            r = self._send_query(pt, TM.WIRE_CMD['qry_funds'][1])
+            r['labels'] = [x for x in r['rows'] if x in (
+                '可用', '可取', '可用金额', '可取金额', '市值', '冻结市值',
+                '冻结金额', '总资产', '本币', '港币', '美币')]
+            out[mk] = r
+        if both_markets:
+            first = out[mkts[0]]
+            first['markets'] = out
+            return first
+        return out[mkts[0]]
+
+    def query_positions(self, market: str = None, date: str = None, page_roll: int = None,
+                        dataid: str = None, menuid: int = None) -> dict:
+        """查询持仓/股票余额 (0126)。
+
+        market: '2'=沪(默认, 需已 bootstrap_sh) '1'=深
+        date / page_roll / dataid / menuid: 可选查询上下文 (缺省用启动模板原值)
+        返回: {'ok','columns','rows','fields','count','stats','plaintext','text'}
         """
         market = market or '2'
-        pt = TM.build_funds_query(sess=self.info['sess'], zjzh=self.zjzh,
-                                  gdzh=self._gdzh_for(market), market=market,
-                                  date=date, menuid=menuid,
-                                  name_gbk=self.name.encode('gbk'),
-                                  seq=self.seq, tick=self.tick())
-        r = self._send_recv(TM.WIRE_CMD['qry_funds'][1] if 'qry_funds' in TM.WIRE_CMD
-                            else b'&', pt)
-        d = _parse.parse_hd10(r['plaintext'])
-        r.update(columns=d['columns'] or _gbk_runs(r['plaintext']), rows=d['rows'],
-                 fields=d['fields'], count=d['count'], stats=d['stats'])
-        r['labels'] = [x for x in r['rows'] if x in (
-            '可用', '可取', '可用金额', '可取金额', '市值', '冻结市值',
-            '冻结金额', '总资产', '本币', '港币', '美币')]
+        pt = self._tpl_query('0126', market, date=date, page_roll=page_roll,
+                             dataid=dataid, menuid=menuid)
+        r = self._send_query(pt, TM.WIRE_CMD['qry_positions'][1])
+        if not r['ok']:
+            c = self.cached_query('positions')
+            if c:
+                return c
         return r
 
-    def query_positions(self, market: str = None) -> dict:
-        """查询持仓/股票余额 (0126)。market: '2'=沪(默认) '1'=深。"""
-        return self._query('0126', market)
+    def query_orders(self, market: str = None, date: str = None, page_roll: int = None,
+                     dataid: str = None, menuid: int = None) -> dict:
+        """查询当日委托 (0326)。参数同 query_positions。
 
-    def query_orders(self, market: str = None) -> dict:
-        """查询当日委托 (0326)。market: '2'=沪(默认) '1'=深。"""
-        return self._query('0326', market)
+        柜台对 0326 有会话状态限制 (单独重放回"无效请求"), 失败时自动回退到
+        start() 启动序列中已收到的完整应答 (结果带 from_cache=True)。
+        """
+        market = market or '2'
+        pt = self._tpl_query('0326', market, date=date, page_roll=page_roll,
+                             dataid=dataid, menuid=menuid)
+        r = self._send_query(pt, TM.WIRE_CMD['qry_orders'][1])
+        if not r['ok']:
+            c = self.cached_query('orders')
+            if c:
+                return c
+        return r
 
-    def query_trades(self, market: str = None) -> dict:
-        """查询当日成交 (0226)。market: '2'=沪(默认) '1'=深。"""
-        return self._query('0226', market)
+    def query_trades(self, market: str = None, date: str = None, page_roll: int = None,
+                     dataid: str = None, menuid: int = None) -> dict:
+        """查询当日成交 (0226)。参数同 query_positions; 失败时回退启动缓存。"""
+        market = market or '2'
+        pt = self._tpl_query('0226', market, date=date, page_roll=page_roll,
+                             dataid=dataid, menuid=menuid)
+        r = self._send_query(pt, TM.WIRE_CMD['qry_trades'][1])
+        if not r['ok']:
+            c = self.cached_query('trades')
+            if c:
+                return c
+        return r
+
+    def account_info(self) -> dict:
+        """账户信息 (解析启动序列 0526 应答): 各市场股东号 + 资金账号。
+
+        数据取自 start() 期间的 0526 应答缓存, 不发额外请求。
+        例: {'上海A股': 'A****20202', '深圳A股': '0********4', 'zjzh': '1*******4'}
+        """
+        acct = {}
+        for wire, r in (self.startup_outs or []):
+            if not isinstance(r, dict) or 'plaintext' not in r:
+                continue
+            t = r['plaintext'].decode('gbk', 'replace')
+            if '上海A股' not in t and '深圳A股' not in t:
+                continue
+            for mk in ('上海A股', '深圳A股'):
+                for m in re.finditer(re.escape(mk), t):
+                    seg = t[max(0, m.start() - 150):m.start()]
+                    cands = re.findall(r'([0-9]{10}|[A-Z][0-9]{9})', seg)
+                    if cands:
+                        acct.setdefault(mk, cands[-1])
+        acct['zjzh'] = self.zjzh
+        return acct
+
+    def market_options(self) -> dict:
+        """柜台支持的委托类型选项 (解析 0526 应答)。
+
+        返回 {'对手方最优': 出现次数, '五档即成剩撤': ..., ...}; 空 dict 表示未取到。
+        """
+        names = ('对手方最优', '本方最优', '五档即成剩撤', '五档即成剩转限', '即成剩撤',
+                 '全额成交或撤', '盘后定价委托', '限价', '市价', '最优五档')
+        out = {}
+        for wire, r in (self.startup_outs or []):
+            if not isinstance(r, dict) or 'plaintext' not in r:
+                continue
+            t = r['plaintext'].decode('gbk', 'replace')
+            for n in names:
+                c = t.count(n)
+                if c:
+                    out[n] = out.get(n, 0) + c
+        return out
+
+    def query_all(self, market: str = None, date: str = None) -> dict:
+        """一次性拉取 持仓+委托+成交+资金 (同一市场), 返回分项 dict。
+
+        单项失败不抛异常, 失败项为 {'ok': False, 'error': ...}。
+        """
+        market = market or '2'
+        out = {}
+        for name, fn in (('positions', self.query_positions), ('orders', self.query_orders),
+                         ('trades', self.query_trades), ('balance', self.query_balance)):
+            try:
+                out[name] = fn(market=market, date=date)
+            except Exception as e:
+                out[name] = {'ok': False, 'error': repr(e)}
+        return out
 
     # ---------------- 低层逃生口 ----------------
     def send(self, wire_cmd: bytes, plaintext: bytes) -> dict:

@@ -345,6 +345,12 @@ print(r['text'])   # 失败如"当前账户暂未持仓该证券！"
 r = cli.query_positions(market='2')   # 持仓/股票余额 (0126); '1'=深市
 r = cli.query_orders(market='2')      # 当日委托 (0326)
 r = cli.query_trades(market='2')      # 当日成交 (0226)
+b = cli.query_balance(market='2')     # 资金明细/余额 (0226 资金查询模板)
+
+# 每个查询返回:
+#   plaintext  原始应答明文        columns  列名表(GBK)
+#   rows       行标签(沪A股/本币…)  fields   hd1.0二进制字段[(tag,a,b)...]
+#   count      字段区条目数        stats     会话统计(SX/T_WR/…)
 
 print(r['columns'])    # 列名表(GBK): 持仓=['买入成本','总盈亏','浮动盈亏(金额)',...]
 print(r['stats'])      # SX=2.0&SXL=... 会话统计

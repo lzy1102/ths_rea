@@ -42,6 +42,7 @@ import time
 
 from . import machine as _machine
 from . import trade_conn as TC
+from . import parse as _parse
 from . import trade_msg as TM
 
 __all__ = ['TradeClient', 'load_profile', 'parse_kv']
@@ -346,9 +347,36 @@ class TradeClient:
         pt[8:24] = TM._sign(bytes(pt))
         wire = bytes([pt[6], pt[7] | 0x20])
         r = self._send_recv(wire, bytes(pt))
-        r['columns'] = _gbk_runs(r['plaintext'])
-        m = re.search(r'SX=[^&]*(?:&[A-Z_]+=[^&\n]*)+', r['text'])
-        r['stats'] = parse_kv(m.group(0)) if m else {}
+        d = _parse.parse_hd10(r['plaintext'])
+        r['columns'] = d['columns'] or _gbk_runs(r['plaintext'])
+        r['rows'] = d['rows']
+        r['fields'] = d['fields']
+        r['count'] = d['count']
+        r['stats'] = d['stats']
+        return r
+
+    def query_balance(self, market: str = None, date: str = None,
+                      menuid: int = 471) -> dict:
+        """查询资金明细/余额 (0226, 真客户端资金查询模板 552B)。返回 columns/rows/fields/stats。
+
+        market: '2'=沪(默认) '1'=深; date: 交易日期 YYYYMMDD (缺省今天, 非交易日
+        可能查不到, 可传上一交易日); rows 含 沪A股/本币/可用/可取/冻结市值/市值 等标签;
+        fields 为 hd1.0 二进制字段原始值 —— 数值语义需账户有资金时对比两次查询确认。
+        """
+        market = market or '2'
+        pt = TM.build_funds_query(sess=self.info['sess'], zjzh=self.zjzh,
+                                  gdzh=self._gdzh_for(market), market=market,
+                                  date=date, menuid=menuid,
+                                  name_gbk=self.name.encode('gbk'),
+                                  seq=self.seq, tick=self.tick())
+        r = self._send_recv(TM.WIRE_CMD['qry_funds'][1] if 'qry_funds' in TM.WIRE_CMD
+                            else b'&', pt)
+        d = _parse.parse_hd10(r['plaintext'])
+        r.update(columns=d['columns'] or _gbk_runs(r['plaintext']), rows=d['rows'],
+                 fields=d['fields'], count=d['count'], stats=d['stats'])
+        r['labels'] = [x for x in r['rows'] if x in (
+            '可用', '可取', '可用金额', '可取金额', '市值', '冻结市值',
+            '冻结金额', '总资产', '本币', '港币', '美币')]
         return r
 
     def query_positions(self, market: str = None) -> dict:

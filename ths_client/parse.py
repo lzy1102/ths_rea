@@ -68,9 +68,15 @@ def parse_hd10(pt: bytes) -> dict:
     fields = []
     for k in range(limit):
         tag, a, b = struct.unpack('<HBB', pt[ent + k * 4:ent + k * 4 + 4])
-        # 记录区末尾会与文本区相接: 出现可打印GBK即停止
-        if 0x20 <= a <= 0x7e and 0x20 <= b <= 0x7e:
+        # 记录区末尾与文本区相接: 4字节若能解成可打印GBK即判定为文本, 停止
+        if 0x20 <= a < 0x7f and 0x20 <= b < 0x7f:
             break
+        try:
+            s = bytes([a, b]).decode('gbk')
+            if s.isprintable() and (0xa1 <= a <= 0xfe or 0xb0 <= a <= 0xf7):
+                break
+        except UnicodeDecodeError:
+            pass
         fields.append((tag, a, b))
     out['fields'] = fields
 

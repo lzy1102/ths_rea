@@ -49,7 +49,8 @@ cli = TradeClient.from_profile()   # 读 local_profile.json
 cli.start()                        # 连接 + 登录 + 启动序列（一行到位）
 
 print(cli.precheck('601398', qty=100)['text'])      # 只读预检（行情/可买数量）
-print(cli.buy_market('601398', 100)['text'])        # 真实市价买入 100 股
+print(cli.buy_market('601398', 100)['text'])        # 真实市价买入 100 股 (沪)
+print(cli.buy_market('000001', 100)['text'])        # 深市市价买入 (自动识别市场)
 print(cli.sell_market('601398', 100)['text'])       # 真实市价卖出 100 股
 cli.close()
 ```
@@ -208,6 +209,18 @@ ths-capture-profile
 
 ---
 
+### 委托报文抓包 (扩展协议用)
+
+`tools/sz_capture.py` — 挂 xiadan.exe 的 ws2_32 全量落盘收发帧，抓完后自动
+扫描客户端内存中的密钥描述符 (KEY 特征码 `b181838083888d81` + IV 槽) 恢复会话 IV，
+**无需重连也能解密全部柜台帧**，产物为 `dec_*_<cmd>.bin` 明文：
+
+```bash
+python tools/sz_capture.py --timeout 600    # 期间在客户端做对应操作(如深市卖出)
+# 结束后自动输出: dec_*_0221.bin / dec_*_0321.bin ... (明文模板)
+```
+
+
 ## TradeClient API 详解
 
 ### 创建
@@ -263,9 +276,11 @@ kv = parse_kv(r['text'])  # 提取 key=value → dict
 ### 市价买入（真实委托）
 
 ```python
-r = cli.buy_market('601398', 100)              # 100股, 默认策略(五档即成剩撤)
-r = cli.buy_market('601398', 100, sjwt=5)      # 指定策略(见下节)
+r = cli.buy_market('601398', 100)              # 沪市, 100股, 默认策略(五档即成剩撤)
+r = cli.buy_market('000001', 100)              # 深市 (代码前缀自动识别市场)
+r = cli.buy_market('000001', 100, sjwt=2)      # 指定策略(见下节; 深市默认2=对手方最优)
 r = cli.buy_market('601398', 100, zxjg=8.60)   # 指定盘口参考价(默认自动预检获取)
+r = cli.buy_market('000001', 100, market='1')  # 显式指定市场
 print(r['text'])   # 成功=委托回报; 失败如"资金不足..."
 ```
 
@@ -387,8 +402,12 @@ print(machine.collect())   # 查看本机采集结果
 A股交易时间外（9:30-11:30 / 13:00-15:00）柜台不接单。盘后登录/查询不受影响。
 
 **Q: 为什么市价委托只支持沪市？**
-深市市价模板尚未抓取验证。代码会明确报 `NotImplementedError`，不会误发。
-（需要深市/限价/撤单支持时，用 `tools/` 抓一次真客户端对应操作即可扩展。）
+- 市价买入: 沪/深均已实测验证 (深市模板由真客户端操作抓包+逐字节复现)。
+  深市实测要点: workid=1(沪2)、bhjg=-1(沪=最新价)、cdr_type=22022(沪0)、默认sjwt=2(对手方最优)。
+  注: 柜台对深市市价可能返回 `该交易时间段不允许市价` (业务规则, 与真客户端行为一致)。
+- 市价卖出: 目前仅沪市。深市卖出需再抓包一次 (流程同深市买入)。
+- 限价/撤单/北交所: 尚未支持 (会明确报 `NotImplementedError`, 不会误发)。
+（需要扩展时用 `tools/sz_capture.py` 抓一次真客户端对应操作即可。）
 
 **Q: 换一台机器/换账号要改什么？**
 重跑 `ths-capture-profile` 生成新配置即可（或手改 `local_profile.json`）。

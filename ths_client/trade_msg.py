@@ -61,11 +61,14 @@ def _tpl(name: str) -> bytearray:
 def guess_market(code: str) -> str:
     """按代码前缀推断市场 (启发式; 不确定时显式传 market)。"""
     c = code.strip()
+    if c[:1] in ('4', '8') or c[:3] == '920':
+        raise ValueError("北交所/三板代码 %r 暂不支持 (需先抓包北交所委托模板, "
+                         "且账户需开通北交所权限)" % code)
     if c[:1] in ('6', '9') or c[:2] in ('51', '58'):
         return MARKET_SH
     if c[:1] in ('0', '3', '2'):
         return MARKET_SZ
-    raise ValueError("无法推断代码 %r 的市场, 请显式传入 market='1'(沪)/'2'(深)" % code)
+    raise ValueError("无法推断代码 %r 的市场, 请显式传入 market='1'(深)/'2'(沪)" % code)
 
 
 def _patch(buf: bytearray, off: int, slot: int, val: bytes, name: str):

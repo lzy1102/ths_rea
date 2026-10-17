@@ -274,27 +274,37 @@ class TradeClient:
             raise ValueError("market 须为 '2'(沪) 或 '1'(深)")
         return self._send_recv(TM.WIRE_CMD['buy'][1], pt)
 
-    def sell_market(self, code: str, qty: int, sjwt: int = 4, market: str = None,
+    def sell_market(self, code: str, qty: int, sjwt: int = None, market: str = None,
                     zxjg: float = None, bhjg: float = None) -> dict:
-        """0321 市价卖单 (真实委托!)。目前仅支持沪市 (市场'2', 实测验证)。
+        """0321 市价卖单 (真实委托!)。支持沪市(市场'2')和深市(市场'1')。
 
-        sjwt: 市价策略码 (同 buy_market, 见 trade_msg.SJWT_SH)
-        zxjg: 盘口参考价 (缺省用 precheck 应答的 open, 再兜底 10.0)
-        bhjg: 保护限价 (缺省=zxjg; 卖出时 wtjg 与 bhjg 同值, 按真客户端实测样本)
+        sjwt: 市价策略码 (缺省: 沪市4=五档即成剩撤 / 深市2=对手方最优, 均实测默认)
+        zxjg: 盘口参考价 (缺省用 precheck 应答的 open, 再兜底模板值)
+        bhjg: 保护限价 (仅沪市; 缺省=zxjg。深市模板固定 bhjg=-1, 忽略此参数)
         注: 卖出需账户持有该证券, 否则服务端回 "当前账户暂未持仓该证券！"
         """
         market = market or TM.guess_market(code)
-        if market != '2':
-            raise NotImplementedError('市价卖出目前仅实测支持沪市(市场"2"); '
-                                      '深市卖出模板需再抓包一次(同深市买入流程)')
+        if sjwt is None:
+            sjwt = 4 if market == '2' else 2
         if zxjg is None:
-            r = self.precheck(code, qty, market=market)
-            m = re.search(r'open=([0-9.]+)', r['text'])
-            zxjg = float(m.group(1)) if m else 10.0
-        pt = TM.build_sell_sh_sjwt(code, qty, sess=self.info['sess'], zjzh=self.zjzh,
-                                   gdzh=self._gdzh_for(market), zxjg=zxjg, bhjg=bhjg,
-                                   sjwt=sjwt, name_gbk=self.name.encode('gbk'),
-                                   seq=self.seq, tick=self.tick())
+            try:
+                r = self.precheck(code, qty, market=market)
+                m = re.search(r'open=([0-9.]+)', r['text'])
+                zxjg = float(m.group(1)) if m else None
+            except Exception:
+                zxjg = None
+        if market == '2':
+            pt = TM.build_sell_sh_sjwt(code, qty, sess=self.info['sess'], zjzh=self.zjzh,
+                                       gdzh=self._gdzh_for(market), zxjg=zxjg or 10.0,
+                                       bhjg=bhjg, sjwt=sjwt, name_gbk=self.name.encode('gbk'),
+                                       seq=self.seq, tick=self.tick())
+        elif market == '1':
+            pt = TM.build_sell_sz_sjwt(code, qty, sess=self.info['sess'], zjzh=self.zjzh,
+                                       gdzh=self._gdzh_for(market), zxjg=zxjg,
+                                       sjwt=sjwt, name_gbk=self.name.encode('gbk'),
+                                       seq=self.seq, tick=self.tick())
+        else:
+            raise ValueError("market 须为 '2'(沪) 或 '1'(深)")
         return self._send_recv(TM.WIRE_CMD['sell'][1], pt)
 
     # ---------------- 查询 (持仓/委托/成交) ----------------

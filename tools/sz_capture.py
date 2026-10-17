@@ -13,6 +13,7 @@ import json
 import re
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -128,6 +129,15 @@ def main():
     script = session.create_script(JS)
     n = {'C2S': 0, 'S2C': 0}
     got = set()
+    pre_ivs = {'list': [], 'done': False}
+
+    def _prescan():
+        try:
+            pre_ivs['list'] = _scan_memory_ivs(pid)
+            print(f'  [IV预扫] {len(pre_ivs["list"])} 个候选: {pre_ivs["list"]}')
+        except Exception as e:
+            print(f'  [IV预扫] 失败({e}) (不影响: 结束时还会再扫)')
+        pre_ivs['done'] = True
 
     def on_message(msg, data):
         if msg.get('type') != 'send':
@@ -135,7 +145,7 @@ def main():
         p = msg['payload']
         ev = p.get('ev')
         if ev == 'ready':
-            print('已挂载 ws2_32。请重新打开下单窗口并登录, 然后做深市委托操作。')
+            print('已挂载 ws2_32。请重新打开下单窗口并登录, 然后做委托操作。')
         elif ev == 'fatal':
             print('挂钩失败:', p.get('err'), file=sys.stderr)
         elif ev == 'connect':
@@ -149,6 +159,8 @@ def main():
                                    'len': p['len'], 't': round(time.time(), 3)}) + '\n')
             meta.flush()
             if tag == 'C2S':
+                if not pre_ivs['done'] and b'\xfd\xff' in bytes(data):
+                    threading.Thread(target=_prescan, daemon=True).start()
                 for h in scan_cmds(bytes(data)):
                     if h not in got:
                         got.add(h)
@@ -171,8 +183,8 @@ def main():
     print(f'抓包结束: C2S {n["C2S"]} 帧, S2C {n["S2C"]} 帧 -> {outdir}/')
     print('捕获命令:', ', '.join(sorted(got)) if got else '(无)')
 
-    # 后处理: 扫描客户端内存中的会话IV, 解密全部柜台帧
-    scan_and_decrypt(outdir, pid)
+    # 后处理: 用预扫IV + 再扫一次, 解密全部柜台帧
+    scan_and_decrypt(outdir, pid, extra_ivs=pre_ivs['list'])
     return 0
 
 
@@ -194,34 +206,46 @@ send({ivs: out});
 """
 
 
-def scan_and_decrypt(outdir: Path, pid: int):
-    """扫描 xiadan 内存中的密钥描述符(KEY特征码+IV槽), 用候选IV解密抓到的柜台帧。
-
-    原理: 客户端把 (KEY=b181838083888d81, IV) 存在连接的密钥描述符里;
-    即使抓包时错过了问候帧(无IV), 也能从运行中的进程内存恢复IV。
-    """
+def _scan_memory_ivs(pid: int) -> list:
+    """扫描 xiadan 内存中的密钥描述符(KEY特征码+IV槽), 返回 IV 候选列表。"""
+    import frida
+    session = frida.attach(pid)
     try:
-        import frida
-        import zlib
-        import struct as _struct
-        sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-        from ths_client.trade_crypt.body_codec import _des_cbc, s2c_decrypt
-    except ImportError as e:
-        print(f'  [后处理] 缺少依赖({e}), 跳过IV扫描')
-        return
-    try:
-        session = frida.attach(pid)
         script = session.create_script(SCAN_JS)
         res = {}
         script.on('message', lambda m, d: res.update(m['payload']) if m.get('type') == 'send' else None)
         script.load()
         time.sleep(1)
         script.unload()
+    finally:
         session.detach()
-    except Exception as e:
-        print(f'  [后处理] IV扫描失败({e}), 跳过解密')
+    return list(dict.fromkeys(res.get('ivs', [])))
+
+
+def scan_and_decrypt(outdir: Path, pid: int, extra_ivs: list = None):
+    """扫描 xiadan 内存中的密钥描述符(KEY特征码+IV槽), 用候选IV解密抓到的柜台帧。
+
+    原理: 客户端把 (KEY=b181838083888d81, IV) 存在连接的密钥描述符里;
+    即使抓包时错过了问候帧(无IV), 也能从运行中的进程内存恢复IV。
+    extra_ivs: 抓包期间预扫得到的IV(客户端已退出时仍可用)。
+    """
+    try:
+        import zlib
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+        from ths_client.trade_crypt.body_codec import _des_cbc
+    except ImportError as e:
+        print(f'  [后处理] 缺少依赖({e}), 跳过解密')
         return
-    ivs = list(dict.fromkeys(res.get('ivs', [])))
+    ivs = list(extra_ivs or [])
+    try:
+        ivs = _scan_memory_ivs(pid) + ivs
+    except Exception as e:
+        if ivs:
+            print(f'  [后处理] 客户端已退出(用预扫IV): {len(ivs)} 个候选')
+        else:
+            print(f'  [后处理] IV扫描失败({e})且无预扫IV, 跳过解密')
+            return
+    ivs = list(dict.fromkeys(ivs))
     if not ivs:
         print('  [后处理] 未找到IV候选')
         return

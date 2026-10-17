@@ -307,6 +307,21 @@ class TradeClient:
             raise ValueError("market 须为 '2'(沪) 或 '1'(深)")
         return self._send_recv(TM.WIRE_CMD['sell'][1], pt)
 
+    def limit_order(self, code: str, qty: int, price: float, is_sell: bool = False,
+                    market: str = None) -> dict:
+        """限价委托 (真实委托!)。沪市/深市, 买/卖均支持 (四组合实测模板)。
+
+        price: 限价 (>0)。挂单成功需资金/持仓足够, 否则柜台回"资金不足"/"暂未持仓"。
+        """
+        market = market or TM.guess_market(code)
+        pt = TM.build_limit(code, qty, price, is_sell=is_sell, market=market,
+                            sess=self.info['sess'], zjzh=self.zjzh,
+                            gdzh=self._gdzh_for(market),
+                            name_gbk=self.name.encode('gbk'),
+                            seq=self.seq, tick=self.tick())
+        cmd = TM.WIRE_CMD['sell'][1] if is_sell else TM.WIRE_CMD['buy'][1]
+        return self._send_recv(cmd, pt)
+
     # ---------------- 查询 (持仓/委托/成交) ----------------
     def _query(self, tpl_code: str, market: str = None) -> dict:
         """发送查询模板(0126持仓/0326委托/0226成交)并返回应答。

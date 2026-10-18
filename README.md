@@ -1,5 +1,7 @@
 # ths-trade-client
 
+[![CI](https://github.com/lzy1102/ths_rea/actions/workflows/ci.yml/badge.svg)](https://github.com/lzy1102/ths_rea/actions/workflows/ci.yml) [![Release](https://github.com/lzy1102/ths_rea/actions/workflows/release.yml/badge.svg)](https://github.com/lzy1102/ths_rea/actions/workflows/release.yml) [![PyPI](https://img.shields.io/pypi/v/ths-trade-client.svg)](https://pypi.org/project/ths-trade-client/)
+
 同花顺柜台交易协议的**纯 Python 客户端**：登录 → 启动序列 → 预检 → 查询 →
 **沪/深 × 买/卖 × 市价/限价（8 种委托组合）**，全链路在实盘服务器上验证通过。
 

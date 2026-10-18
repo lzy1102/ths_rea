@@ -1,0 +1,9 @@
+# sdist 补充清单 (pyproject 只覆盖 wheel 的 package-data)
+include LICENSE
+include README.md
+include local_profile.example.json
+include docs/*.md
+include tests/test_offline.py
+include tests/fixtures/*
+recursive-include ths_client/data *.bin
+recursive-include ths_client/examples *.py

@@ -21,8 +21,13 @@
   5. bootstrap() 回放启动序列(0030/0526/0126/0326/0226) 建立账户上下文
      (不做则业务消息回 "数据包无效：帐户无效")
 """
+import collections
+import queue
+import re
 import socket
 import struct
+import threading
+import time
 import zlib
 from pathlib import Path
 
@@ -106,11 +111,29 @@ class TradeConn:
         self.timeout = timeout
         self.sock = None
         self._rxbuf = b''
+        self._resp_q = queue.Queue()      # 应答帧队列 (读线程)
+        self._push_q = queue.Queue()      # 推送队列
+        self._push_ev = threading.Event()
+        self.pushes = collections.deque(maxlen=200)
+        self.push_max = 200
+        self.on_push = None
+        self._reader_on = False
+        self._reader_err = None
+        self._stop = threading.Event()
+        self._hb_on = False
+        self._hb_stop = threading.Event()
         self.sess = bytes(4)
         self.iv = None
 
     # ---- 底层 ----
     def connect(self, bind_port: int = 0, dump_dir: str = None):
+        self.stop_reader()
+        self._reader_err = None
+        while not self._resp_q.empty():
+            try:
+                self._resp_q.get_nowait()
+            except queue.Empty:
+                break
         self.close()
         self.dump_dir = dump_dir
         self._dump_seq = 0
@@ -129,12 +152,12 @@ class TradeConn:
         Path(self.dump_dir, '%03d_%s.bin' % (self._dump_seq, tag)).write_bytes(bytes(data))
 
     def close(self):
+        sk, self.sock = self.sock, None
         try:
-            if self.sock:
-                self.sock.close()
+            if sk:
+                sk.close()
         except OSError:
             pass
-        self.sock = None
 
     def _recvn(self, n: int) -> bytes:
         out = bytearray()
@@ -263,10 +286,25 @@ class TradeConn:
         return outs
 
     # ---- 收 S2C 业务帧 ----
-    def recv_msg(self) -> dict:
+    def recv_msg(self, timeout: float = None) -> dict:
         """收一帧 S2C 并解包/解密/解压。返回 {type, sess, psize, plaintext}。
-        要求 self.iv 已就绪 (custom 0x10 需要)。"""
-        fr = self.recv_frame()
+
+        启动读线程后, 应答帧从响应队列取 (推送帧已在读线程里分流到推送队列);
+        未启动读线程时退回同步 recv_frame。
+        timeout: 等待应答的最长秒数 (仅队列模式有效)。
+        """
+        if self._reader_on:
+            try:
+                fr = self._resp_q.get(timeout=timeout)
+            except queue.Empty:
+                raise TimeoutError('等待柜台应答超时 (%.1fs)' % (timeout or 0))
+            if isinstance(fr, Exception):
+                raise fr
+        else:
+            fr = self.recv_frame()
+        return self._decode_s2c(fr)
+
+    def _decode_s2c(self, fr: dict) -> dict:
         info = parse_s2c(fr['content'])
         self.sess = info['sess']
         if info['type'] == 0x50:
@@ -275,4 +313,116 @@ class TradeConn:
             if self.iv is None:
                 raise RuntimeError("custom 帧需要 IV, 请先 login()")
             info['plaintext'] = s2c_decrypt(info['body'], self.iv)
+        info['text'] = info['plaintext'].decode('gbk', 'replace')
+        self._dump('s2c_plain', info['plaintext'])
+        return info
+
+    # ---- 读线程: 应答/推送分流 ----
+    def start_reader(self, on_push=None):
+        """启动后台读线程。
+
+        协议判据 (实测): 应答帧 type=0x10 (DES 加密), 推送帧 type=0x50 (zlib 明文,
+        携带行情/成交回报 k=v: zqdm/zqmc/zgj/zdj/open/cjje/cjl/ywzt/statusflag ...)。
+        on_push(dict) 在收到推送时调用 (dict 含 plaintext/text/kv/frames)。
+        """
+        if self._reader_on:
+            return
+        self._reader_on = True
+        self.on_push = on_push
+        self.pushes.clear()
+        self._stop.clear()
+        self._t = threading.Thread(target=self._reader_loop, name='ths-reader', daemon=True)
+        self._t.start()
+
+    def stop_reader(self):
+        """停止读线程 (唤醒阻塞的 recv 并等待退出, 避免与新连接抢 socket)。"""
+        self._reader_on = False
+        self._stop.set()
+        t = getattr(self, '_t', None)
+        if t and t.is_alive():
+            try:
+                self.sock.settimeout(0.3)
+            except Exception:
+                pass
+            t.join(timeout=2.0)
+        try:
+            if self.sock:
+                self.sock.settimeout(self.timeout)
+        except Exception:
+            pass
+
+    def _reader_loop(self):
+        while not self._stop.is_set() and self.sock is not None:
+            try:
+                fr = self.recv_frame()
+            except (socket.timeout, TimeoutError):
+                continue
+            except Exception as e:            # 连接断开 -> 通知等待者
+                if self._stop.is_set():
+                    return
+                self._reader_err = e
+                self._resp_q.put(e)
+                return
+            c = fr['content']
+            t = c[9] if len(c) >= 10 else None
+            if t == 0x50 and len(c) >= 14:
+                try:
+                    pt = zlib.decompress(bytes(c[14:]))
+                except Exception:
+                    self._resp_q.put(fr)
+                    continue
+                item = {'type': 0x50, 'sess': fr['content'][2:6], 'plaintext': pt,
+                        'text': pt.decode('gbk', 'replace'),
+                        'kv': dict(re.findall(r'([A-Za-z_][A-Za-z0-9_]*)=([^\x00&\n]*)',
+                                              pt.decode('gbk', 'replace'))),
+                        'ts': time.time()}
+                self.pushes.append(item)
+                self._push_q.put(item)
+                self._push_ev.set()
+                if self.on_push:
+                    try:
+                        self.on_push(item)
+                    except Exception:
+                        pass
+            elif t is None and len(c) <= 4:
+                continue                        # 3/4字节保活确认帧
+            else:
+                self._resp_q.put(fr)
+
+    def wait_pushes(self, timeout: float = 1.0) -> list:
+        """等待并返回待处理推送 (成交回报等)。"""
+        out = []
+        t0 = time.time()
+        while time.time() - t0 < timeout:
+            if self._push_ev.is_set():
+                self._push_ev.clear()
+                while not self._push_ev.is_set():
+                    try:
+                        out.append(self._push_q.get(timeout=max(0.05, timeout - (time.time() - t0))))
+                    except queue.Empty:
+                        break
+                continue
+            time.sleep(0.05)
+        return out
+
+    # ---- 心跳 ----
+    def start_heartbeat(self, interval: float = 30.0):
+        """按真客户端行为周期性发 3 字节保活帧 (content=00 00 00)。"""
+        if self._hb_on:
+            return
+        self._hb_on = True
+        self._hb_stop.clear()
+
+        def _loop():
+            while not self._hb_stop.wait(interval):
+                try:
+                    self.send_frame(b'\x00\x00\x00')
+                except Exception:
+                    return
+        self._hb_t = threading.Thread(target=_loop, name='ths-hb', daemon=True)
+        self._hb_t.start()
+
+    def stop_heartbeat(self):
+        self._hb_on = False
+        self._hb_stop.set()
         return info

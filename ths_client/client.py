@@ -78,6 +78,8 @@ class TradeClient:
 
     def __init__(self, zjzh: str, *, gdzh_sh: str = None, gdzh_sz: str = None,
                  name: str = '某某某', deptid=None, verinfo: str = None,
+                 on_push=None, heartbeat: float = 30.0, push_handling: bool = True,
+                 auto_reconnect: bool = True,
                  host: str = TC.COUNTER_HOST,
                  port: int = TC.COUNTER_PORT, timeout: float = 20.0,
                  hosts: list = None, machine_info: dict = None):
@@ -91,6 +93,10 @@ class TradeClient:
         self.gdzh_sz = gdzh_sz
         self.name = name
         self.deptid = deptid          # 营业部ID (None=模板默认1302)
+        self.on_push = on_push            # 推送回调 fn(dict)
+        self.heartbeat = heartbeat        # 心跳间隔秒 (0=关闭)
+        self.push_handling = push_handling  # 是否启动读线程做应答/推送分流
+        self.auto_reconnect = auto_reconnect
         self.verinfo = verinfo        # 券商标记 (None=模板默认gtja)
         self.hosts = hosts or []      # 备用站点 [{'ip','port'}...] 连接失败自动切换
         self.machine_info = machine_info  # 设备信息 (抓包提取; None=程序自行采集)
@@ -155,18 +161,26 @@ class TradeClient:
         self.close()
 
     def login(self) -> dict:
-        """问候 + 登录。成功后 self.info/self.seq/tick 就绪。"""
+        """问候 + 登录。成功后 self.info/self.seq/tick 就绪。
+
+        on_push 不为 None 时自动启动后台读线程 (推送/应答分流);
+        heartbeat>0 时同时启动心跳 (默认30秒, 与真客户端一致)。
+        """
         self.conn.greeting()                       # 包内 hello.bin 原样重放
         lip = self._local_ip()
         lport = self.conn.sock.getsockname()[1]
         pt = bytearray(TM.build_login(login_zh=self.zjzh, local_ip=lip, localport=lport,
-                                      server_ip=self.conn.host, name=self.name,
-                                      deptid=self.deptid, verinfo=self.verinfo))
+                                       server_ip=self.conn.host, name=self.name,
+                                       deptid=self.deptid, verinfo=self.verinfo))
         _machine.patch(pt, info=self.machine_info)   # 设备信息 (配置优先, 否则自采集)
         self.info = self.conn.login(bytes(pt))
         self.seq = TM.MsgSeq(2)                    # 登录已用 seq=1
         tick0 = struct.unpack('<I', pt[0x88:0x8c])[0]
         self._tick_base = (tick0, time.monotonic())
+        if self.on_push is not None or self.push_handling:
+            self.conn.start_reader(on_push=self.on_push)
+        if self.heartbeat:
+            self.conn.start_heartbeat(self.heartbeat)
         return self.info
 
     def start(self) -> dict:
@@ -178,6 +192,50 @@ class TradeClient:
         info = self.login()
         self.startup_outs = self.bootstrap(include_sh=True)
         return info
+
+    # ---------------- 推送/心跳/重连 ----------------
+    def wait_pushes(self, timeout: float = 1.0) -> list:
+        """等待并返回待处理推送列表 (成交回报/行情推送, 见 trade_conn 读线程)。
+
+        推送为 zlib 明文 k=v, 常用键:
+          zqdm 证券代码 / zqmc 证券名称 / zg j最高 / zdj最低 / open 开盘
+          cjje 成交金额 / cjl 成交量 / ywzt 业务状态 / zrlx 转让类型 / statusflag 状态标志
+        """
+        return self.conn.wait_pushes(timeout)
+
+    @property
+    def pushes(self):
+        """最近收到的推送 (deque, 最多 push_max 条)。"""
+        return self.conn.pushes
+
+    def alive(self) -> bool:
+        """连接是否健康 (读线程未报错)。"""
+        return not self.conn._reader_err
+
+    def reconnect(self) -> dict:
+        """断线重连: 重新 connect + login + bootstrap, 返回 login info。"""
+        try:
+            self.conn.stop_reader()
+            self.conn.stop_heartbeat()
+        except Exception:
+            pass
+        self.connect()
+        info = self.login()
+        self.startup_outs = self.bootstrap(include_sh=True)
+        return info
+
+    def request(self, fn, *args, **kw):
+        """带自动重连的请求执行: 断线时重连一次并重试。
+
+        用法: cli.request(cli.buy_market, '601398', 100)
+        """
+        try:
+            return fn(*args, **kw)
+        except (ConnectionError, OSError, TimeoutError, RuntimeError) as e:
+            if not self.auto_reconnect:
+                raise
+            self.reconnect()
+            return fn(*args, **kw)
 
     def _local_ip(self) -> str:
         try:

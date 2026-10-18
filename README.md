@@ -25,7 +25,9 @@
 7. [市价策略码](#市价策略码)
 8. [站点列表与故障切换](#站点列表与故障切换)
 9. [设备信息（机器指纹）](#设备信息机器指纹)
-10. [常见问题 FAQ](#常见问题-faq)
+10. [推送回报 / 心跳 / 断线重连](#推送回报--心跳--断线重连)
+11. [离线测试](#离线测试)
+12. [常见问题 FAQ](#常见问题-faq)
 11. [服务端常见应答对照](#服务端常见应答对照)
 12. [包结构与开发](#包结构与开发)
 
@@ -446,6 +448,64 @@ print(cli.host_used)     # 实际连上的站点 (ip, port)
 from ths_client import machine
 print(machine.collect())   # 查看本机采集结果
 ```
+
+---
+
+## 推送回报 / 心跳 / 断线重连
+
+客户端启动后即启用**后台读线程**，把柜台的下行帧按类型分流（实测判据）：
+
+| 帧类型 | 含义 | 处理 |
+|---|---|---|
+| `0x10` | 请求应答（DES 加密） | 交给等待中的调用 |
+| `0x50` | **推送**（zlib 明文 k=v） | 进 `pushes` 队列 + `on_push` 回调 |
+
+推送内容为明文键值对，常见字段（实测）：
+
+```
+zqdm=600398   zqmc=海澜之家   s_typename=上证Ａ股
+zgj=6.0500    zdj=5.9100      open=5.9500     # 最高/最低/开盘
+cjje=...      cjl=...                         # 成交金额/成交量
+ywzt=E110     zrlx=E  statusflag=D F N       # 业务状态/转让类型/状态标志
+```
+
+```python
+def on_push(p):
+    kv = p['kv']
+    print(kv.get('zqdm'), kv.get('zqmc'), kv.get('cjje'))
+
+cli = TradeClient.from_profile(on_push=on_push)
+cli.start()
+
+for p in cli.wait_pushes(timeout=5):    # 取待处理推送（成交回报等）
+    print(p['kv'])
+print(len(cli.pushes), '条历史推送')
+```
+
+**心跳**：默认每 30 秒发一个 3 字节保活帧（与真客户端一致），`heartbeat=0` 关闭。
+
+**断线重连**：`auto_reconnect=True`（默认）时，业务请求遇连接错误会自动
+`reconnect()`（重新 connect+login+bootstrap）并重试一次：
+
+```python
+cli.conn.sock.close()                  # 模拟断线
+r = cli.request(cli.buy_market, '601398', 100)   # 自动重连后下单
+```
+
+或手动：`cli.reconnect()` / `cli.alive()`。
+
+---
+
+## 离线测试
+
+不连柜台，用抓包脱敏样本做回归（12 项）：
+
+```bash
+python tests/test_offline.py       # 或 pytest tests/test_offline.py
+```
+
+覆盖：帧组帧/拆帧、DES-CBC+zlib、S2C 解密、md5 签名槽、限价/市价模板逐字节复现、
+市价限价字段语义、hd1.0 应答解析、账号占位符补丁、市场推断、组帧长度字段。
 
 ---
 

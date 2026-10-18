@@ -1,0 +1,4 @@
+# DES_KEY(8B) / session IV(8B) / sess4(4B)
+b181838083888d81
+01b0b1701cd32c96
+4384cfff

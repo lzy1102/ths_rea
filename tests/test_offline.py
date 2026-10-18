@@ -1,0 +1,198 @@
+# -*- coding: utf-8 -*-
+"""离线回归测试 (不需要网络/柜台)。
+
+    python tests/test_offline.py        # 直接跑
+    pytest tests/test_offline.py        # 或用 pytest
+
+覆盖: 帧组帧/拆帧、DES-CBC+zlib 加解密、md5 签名槽、模板构建(限价/市价 沪深)、
+应答解析 (hd1.0 记录区/列名/统计)、市场推断、字段补丁。
+
+fixtures/ 里是从真客户端抓包脱敏而来的黄金样本 (golden fixtures):
+  limit_buy_sh_592.bin    沪市限价买单明文 (真客户端抓包逐字节复现)
+  market_sell_sh_624.bin  沪市市价卖单明文
+  market_buy_sz_616.bin   深市市价买单明文
+  limit_buy_body.bin      上述限价单的 zlib+DES 密文
+  s2c_funds_1006.bin      资金明细应答明文 (真柜台返回)
+"""
+import re
+import struct
+import sys
+import zlib
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+from ths_client import parse as P                      # noqa: E402
+from ths_client import trade_msg as TM                 # noqa: E402
+from ths_client.trade_crypt.body_codec import (       # noqa: E402
+    DES_KEY, body_decrypt, body_encrypt, des_cbc_encrypt, s2c_decrypt, _des_cbc)
+from ths_client.trade_conn import (                    # noqa: E402
+    build_frame, build_content, parse_frame, parse_s2c)
+
+FIX = Path(__file__).resolve().parent / 'fixtures'
+
+
+def fx(name):
+    return (FIX / name).read_bytes()
+
+
+def test_frame_roundtrip():
+    content = b'\xfd\xff\x43\x84\xcf\xff\x02\x21' + bytes(range(64))
+    raw = build_frame(content)
+    assert raw[:4] == b'\xfd\xfd\xfd\xfd'
+    assert raw[4:12] == b'%08x' % len(content)
+    fr, rest = parse_frame(raw)
+    assert rest == b''
+    assert fr['len'] == len(content)
+    assert fr['content'] == content
+
+
+def test_parse_s2c_types():
+    # 0x10: fdff+sess4+ffff00+10+body
+    c = b'\xfd\xff' + bytes.fromhex('4384cfff') + b'\xff\xff\x00\x10' + bytes(range(40))
+    info = parse_s2c(c)
+    assert info['type'] == 0x10 and info['sess'] == bytes.fromhex('4384cfff')
+    # 0x50: +psize(4)+zlib
+    body = zlib.compress(b'hello', 6)
+    c = b'\xfd\xff' + bytes.fromhex('4384cfff') + b'\xff\xff\x00\x50' + struct.pack('<I', len(body)) + body
+    info = parse_s2c(c)
+    assert info['type'] == 0x50
+    assert zlib.decompress(info['body']) == b'hello'
+
+
+def test_crypto_roundtrip():
+    iv = bytes.fromhex('01b0b1701cd32c96')
+    pt = fx('limit_buy_sh_592.bin')
+    body, zlen = body_encrypt(pt, iv)
+    assert zlen == len(zlib.compress(pt, 6))
+    assert body_decrypt(body, iv)[:len(pt)] == pt          # 解密+zlib == 原明文
+    # S2C: [u32 len][zlib]
+    s2c_body = struct.pack('<I', len(pt)) + zlib.compress(pt, 6)
+    pad = des_cbc_encrypt(s2c_body, iv)
+    assert s2c_decrypt(pad, iv) == pt
+
+
+def test_cipher_fixture():
+    """密文 fixture 用固定 IV 解回明文 (验证 DES key/IV 链路未漂移)。"""
+    key, iv = [l.strip() for l in fx('key_iv.txt').decode().splitlines()
+               if l.strip() and not l.strip().startswith('#')][:2]
+    assert key == DES_KEY.hex()
+    iv = bytes.fromhex(iv)
+    body = fx('limit_buy_body.bin')
+    z = _des_cbc(body, iv, encrypt=False)
+    pt = zlib.decompressobj().decompress(z)
+    assert pt[:8] == fx('limit_buy_sh_592.bin')[:8]
+    assert len(pt) == len(fx('limit_buy_sh_592.bin'))
+
+
+def test_sign_slot():
+    """md5 签名槽 [8:24] = md5(明文, 槽清零); 改动任一字节签名即变化。"""
+    pt = bytearray(fx('limit_buy_sh_592.bin'))
+    assert pt[8:24] == TM._sign(bytes(pt))
+    pt[0x12b] ^= 0x01
+    assert pt[8:24] != TM._sign(bytes(pt))
+
+
+def test_limit_template_reproducible():
+    """build_limit 重建 == fixture (逐字节)。"""
+    want = fx('limit_buy_sh_592.bin')
+    got = TM.build_limit('600398', 100, 6.0, is_sell=False, market='2',
+                         sess=bytes.fromhex('4384cfff'), zjzh='12345678',
+                         gdzh='A123456789', name_gbk='某某某'.encode('gbk'), tick=116000000)
+    got = re.sub(rb'req_start_tickcount=\d+', b'req_start_tickcount=116000000', got)
+    assert len(got) == len(want) == 592
+    # 随机槽与签名在末尾统一比对前先重算
+    a = bytearray(got)
+    a[8:24] = want[8:24]
+    assert bytes(a) == want
+
+
+def test_market_templates():
+    for name, fn, kw in (
+            ('market_sell_sh_624.bin',
+             TM.build_sell_sh_sjwt,
+             dict(code='600398', qty=100, sess=bytes.fromhex('4384cfff'), zjzh='12345678',
+                  gdzh='A123456789', zxjg=6.55, sjwt=4, name_gbk='某某某'.encode('gbk'),
+                  tick=116000000)),
+            ('market_buy_sz_616.bin',
+             TM.build_buy_sz_sjwt,
+             dict(code='000001', qty=100, sess=bytes.fromhex('c07bdeff'), zjzh='12345678',
+                  gdzh='0123456789', zxjg=None, sjwt=2, name_gbk='某某某'.encode('gbk'),
+                  tick=116000000))):
+        want = fx(name)
+        got = fn(**kw)
+        got = re.sub(rb'req_start_tickcount=\d+', b'req_start_tickcount=116000000', got)
+        a = bytearray(got)
+        a[8:24] = want[8:24]
+        assert bytes(a) == want, name
+        # 关键业务字段
+        t = got.decode('gbk', 'replace')
+        assert 'wtjg=' in t and 'wtsl=100' in t
+        assert ('scdm=2' in t) if 'sh' in name else ('scdm=1' in t)
+
+
+def test_order_field_semantics():
+    """市价/限价的关键差异字段 (逆向结论, 防回归)。"""
+    buy_mkt = fx('market_buy_sz_616.bin').decode('gbk', 'replace')
+    buy_lmt = fx('limit_buy_sh_592.bin').decode('gbk', 'replace')
+    assert 'type=sjwt' in buy_mkt and 'sjwt=2' in buy_mkt
+    assert 'type=ptwt' in buy_lmt and 'wtjg=6.000000' in buy_lmt
+    assert 'sjwt=' not in buy_lmt          # 限价无 sjwt 行
+    assert buy_mkt.count('sjwt=') == 1
+
+
+def test_response_parse():
+    pt = fx('s2c_funds_1006.bin')
+    d = P.parse_hd10(pt)
+    assert d['count'] and len(d['fields']) > 20
+    assert '市场名称' in d['columns']
+    assert d['stats'].get('SX') == '2.0'
+    # 列名/行标签均可读
+    assert P.parse_stats(pt.decode('gbk', 'replace'))['SX'] == '2.0'
+    assert P.gbk_runs(pt, 2)
+
+
+def test_patch_account_placeholder():
+    tpl = bytearray(fx('market_buy_sz_616.bin'))
+    TM.patch_account(tpl, zjzh='11111111', gdzh_sh='A111111111',
+                     gdzh_sz='0111111111', name_gbk='测试'.encode('gbk'))
+    assert b'11111111' in bytes(tpl) and b'0111111111' in bytes(tpl)
+    assert b'12345678' not in bytes(tpl)
+
+
+def test_guess_market():
+    assert TM.guess_market('600398') == '2'
+    assert TM.guess_market('000001') == '1'
+    assert TM.guess_market('300750') == '1'
+    for bad in ('920002', '833171', '430047'):        # 北交所/三板明确拒绝
+        try:
+            TM.guess_market(bad)
+            raise AssertionError('应拒绝 %s' % bad)
+        except ValueError:
+            pass
+
+
+def test_build_content_len_fields():
+    """组帧头: len1=zlib长, len2=明文长。"""
+    pt = fx('market_buy_sz_616.bin')
+    body, zlen = body_encrypt(pt, bytes(8))
+    c = build_content(b'\x02\x21', bytes.fromhex('c07bdeff'), body, zlen, len(pt))
+    assert c[6:8] == b'\x02\x21'
+    assert struct.unpack('<HH', c[12:16]) == (zlen, len(pt))
+    assert c[8:12] == b'\x00\x00\x10\x00'
+
+
+if __name__ == '__main__':
+    fns = [(n, f) for n, f in sorted(globals().items())
+           if n.startswith('test_') and callable(f)]
+    bad = 0
+    for n, f in fns:
+        try:
+            f()
+            print('  PASS %s' % n)
+        except Exception as e:
+            bad += 1
+            print('  FAIL %s: %r' % (n, e))
+    print('\n%d/%d 通过' % (len(fns) - bad, len(fns)))
+    sys.exit(1 if bad else 0)

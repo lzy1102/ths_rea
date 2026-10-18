@@ -122,6 +122,7 @@ class TradeConn:
         self._stop = threading.Event()
         self._hb_on = False
         self._hb_stop = threading.Event()
+        self._ack_count = 0           # 收到的保活确认帧数 (验证柜台在线/保活被接受)
         self.sess = bytes(4)
         self.iv = None
 
@@ -385,9 +386,14 @@ class TradeConn:
                     except Exception:
                         pass
             elif t is None and len(c) <= 4:
-                continue                        # 3/4字节保活确认帧
+                self._ack_count += 1          # 3/4字节保活确认帧
+                continue
             else:
                 self._resp_q.put(fr)
+
+    def send_keepalive(self) -> int:
+        """手动发一次 3 字节保活帧; 之后看 ack_count 增长即知柜台在线并接受保活。"""
+        return self.send_frame(b'\x00\x00\x00')
 
     def wait_pushes(self, timeout: float = 1.0) -> list:
         """等待并返回待处理推送 (成交回报等)。"""

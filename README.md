@@ -483,6 +483,13 @@ print(len(cli.pushes), '条历史推送')
 ```
 
 **心跳**：默认每 30 秒发一个 3 字节保活帧（与真客户端一致），`heartbeat=0` 关闭。
+实测：柜台**不回**保活确认帧（与真客户端行为相同），保活是单向 keepalive，
+作用是告知柜台连接存活、避免被回收；实测 4 分钟会话不掉线。
+
+```python
+cli.conn.send_keepalive()      # 手动发一次保活
+cli.conn.ack_count            # 收到的确认帧数 (该柜台恒为 0, 供排查参考)
+```
 
 **断线重连**：`auto_reconnect=True`（默认）时，业务请求遇连接错误会自动
 `reconnect()`（重新 connect+login+bootstrap）并重试一次：

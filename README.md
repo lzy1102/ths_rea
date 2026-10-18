@@ -516,6 +516,27 @@ python tests/test_offline.py       # 或 pytest tests/test_offline.py
 
 ---
 
+## 框架接入示例
+
+包内 `examples/` 两个可直接运行的示例（都在 `ths_client/examples/`）：
+
+```bash
+# ① 账户监控: 定时轮询资金/持仓/委托, 变化即打印; 推送回调实时打印
+python -m ths_client.examples.monitor --interval 30
+python -m ths_client.examples.monitor --interval 30 --market 1 --times 5
+
+# ② 轮询策略骨架: 定时取参考价 -> 条件满足则下单
+python -m ths_client.examples.polling_strategy --codes 601398,000001         --qty 100 --below 6.0 --dry-run          # 先干跑, 去掉 --dry-run 即实盘
+python -m ths_client.examples.polling_strategy --codes 000001 --limit --below 11.0
+```
+
+> 策略示例的取价用 `precheck()` 的 `open=`（粗条件）。做真实策略请替换
+> `get_price()` 接自己的行情源，其余流程（登录/风控/下单/重连/推送）不用改。
+
+完整 API 参考见 **[docs/API.md](docs/API.md)**。
+
+---
+
 ## 常见问题 FAQ
 
 **Q: 需要先登录同花顺（扫码）吗？**

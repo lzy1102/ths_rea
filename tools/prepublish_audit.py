@@ -43,10 +43,13 @@ ALLOW = {
 ALLOW_SUB = {'12345678', '0123456789', '00000000', '1000000000', '0000000000',
              '1234567890', '0123456789', '00001000'}
 ALLOW_PREF = ('DESKTOP-XXXXXXX',)
+ALLOW_EXACT = {'192.168.0.1', '10.0.0.99',   # 示例用内网地址(非真实环境)
+               '2020063035285685'}          # 同花顺 AppID(产品常量)
 # 行情字段ID/偏移量/日期等"数字巧合", 非账号 (docs/quote_fields.md 等)
 ALLOW_FILES_NOISE = ('docs/quote_fields.md', 'docs/QuoteFieldData.xml',
                      'docs/下单逆向进展-3.md', 'docs/接口分析报告.md', 'README.md')
 ALLOW_PATHS = {
+    'tools/prepublish_audit.py',  # 审计脚本自身的示例值
     'ths_client/machine.py',      # 采集逻辑, 只有占位符
     'ths_client/data/hello.bin',  # 协议问候, 已零值化
     'docs/ApiConfig.xml',         # 同花顺产品接口定义(非个人)
@@ -60,14 +63,14 @@ SKIP_EXT = {'.png', '.jpg', '.ico', '.gif', '.whl', '.gz', '.exe', '.dll', '.bin
 
 
 import os
-DATE_RE = re.compile(r'^20\d{6}$')          # 20261016 -> 日期
-FIELD_RE = re.compile(r'^(?:1[0-9]|2[0-9])\d{6}$|^\d{8}$')  # 字段ID/偏移
+DATE_RE = re.compile(r'^20[0-9]{6}$')                       # 20261016 -> 日期
+FIELD_RE = re.compile(r'^(?:1[0-9]|2[0-9])[0-9]{6}$|^[0-9]{8}$')  # 行情字段ID/偏移
 
 
 def ok(value: str, path: str) -> bool:
-    if value in ALLOW or value in ALLOW_SUB:
+    if value in ALLOW or value in ALLOW_SUB or value in ALLOW_EXACT:
         return True
-    if os.path.basename(path) in ALLOW_FILES_NOISE and (DATE_RE.match(value) or FIELD_RE.match(value)):
+    if (os.path.basename(path) in ALLOW_FILES_NOISE or path in ALLOW_FILES_NOISE)             and (DATE_RE.match(value) or FIELD_RE.match(value)):
         return True
     if any(value.startswith(p) for p in ALLOW_PREF):
         return True

@@ -17,7 +17,8 @@ import time
 JS = r"""
 var _delta = null;
 var RVA = 0xa35230;
-var PROLOGUE = '505183ec14535657';
+var PROLOGUE = [0x50,0x51,0x83,0xec,0x14,0x53,0x56,0x57];
+function prologueHex() { return PROLOGUE.map(function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''); }
 function hx(p, n) {
     try {
         var b = new Uint8Array(p.readByteArray(n));
@@ -27,7 +28,7 @@ function hx(p, n) {
 }
 function findDelta() {
     var base = Process.mainModule.base;
-    if (hx(base.add(RVA), 8) === PROLOGUE) { _delta = base; return _delta; }
+    if (hx(base.add(RVA), 8) === prologueHex()) { _delta = base; return _delta; }
     return null;
 }
 function A(x) { return ptr(x).add(_delta === null ? ptr(0) : _delta); }

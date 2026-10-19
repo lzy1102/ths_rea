@@ -21,7 +21,8 @@ JS = r"""
 var _delta = null;
 var KEYLOAD_RVA = 0xa35230;   // RVA(不是VA); 绝对地址 = 模块基址 + RVA
                              // (实测本版本 xiadan.exe: 序言 50 51 83 ec 14 53 56 57 @base+0xa35230)
-var PROLOGUE = '505183ec14535657';  // 8字节: push eax; push ecx; sub esp,0x14; push ebx/esi/edi
+var PROLOGUE = [0x50,0x51,0x83,0xec,0x14,0x53,0x56,0x57];  // push eax; push ecx; sub esp,0x14; push ebx/esi/edi
+function prologueHex() { return PROLOGUE.map(function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''); }
 function hexAt(p, n) {
     try {
         var b = new Uint8Array(p.readByteArray(n));
@@ -33,12 +34,12 @@ function findDelta() {
     // PE ImageBase = 0x400000, 这里的地址都是 RVA -> delta 就是模块基址
     var base = Process.mainModule.base;
     try {
-        if (hexAt(base.add(KEYLOAD_RVA), 8) === PROLOGUE) { _delta = base; return _delta; }
+        if (hexAt(base.add(KEYLOAD_RVA), 8) === prologueHex()) { _delta = base; return _delta; }
         // 基址推导不对时, 全模块扫特征序言反推
-        var hits = Memory.scanSync(base, base.readU32(), PROLOGUE.slice(0, 6).match(/../g).join(' '));
+        var hits = Memory.scanSync(base, base.readU32(), PROLOGUE.slice(0, 6).map(function (b) { return ('0' + b.toString(16)).slice(-2); }).join(' '));
         for (var i = 0; i < hits.length; i++) {
             var cand = hits[i].address.sub(KEYLOAD_RVA);
-            if (hexAt(cand.add(KEYLOAD_RVA), 8) === PROLOGUE) { _delta = cand; return _delta; }
+            if (hexAt(cand.add(KEYLOAD_RVA), 8) === prologueHex()) { _delta = cand; return _delta; }
         }
     } catch (e) {}
     return null;

@@ -44,3 +44,6 @@ token*.json
 Thumbs.db
 desktop.ini
 local_profile.json
+
+# 模拟盘配置(含设备指纹, 勿提交)
+sim_profile.json

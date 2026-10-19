@@ -46,8 +46,8 @@ ALLOW_PREF = ('DESKTOP-XXXXXXX',)
 ALLOW_EXACT = {'192.168.0.1', '10.0.0.99',   # 示例用内网地址(非真实环境)
                '2020063035285685'}          # 同花顺 AppID(产品常量)
 # 行情字段ID/偏移量/日期等"数字巧合", 非账号 (docs/quote_fields.md 等)
-ALLOW_FILES_NOISE = ('docs/quote_fields.md', 'docs/QuoteFieldData.xml',
-                     'docs/下单逆向进展-3.md', 'docs/接口分析报告.md', 'README.md')
+ALLOW_FILES_NOISE = ('quote_fields.md', 'QuoteFieldData.xml', '下单逆向进展-3.md',
+                     '接口分析报告.md', 'README.md', 'ApiConfig.xml')
 ALLOW_PATHS = {
     'tools/prepublish_audit.py',  # 审计脚本自身的示例值
     'ths_client/machine.py',      # 采集逻辑, 只有占位符

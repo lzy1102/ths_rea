@@ -49,7 +49,7 @@ ALLOW_EXACT = {'192.168.0.1', '10.0.0.99',   # 示例用内网地址(非真实�
 ALLOW_FILES_NOISE = ('quote_fields.md', 'QuoteFieldData.xml', '下单逆向进展-3.md',
                      '接口分析报告.md', 'README.md', 'ApiConfig.xml')
 ALLOW_PATHS = {
-    'tools/prepublish_audit.py',  # 审计脚本自身的示例值
+    'prepublish_audit.py',      # 审计脚本自身的示例值
     'ths_client/machine.py',      # 采集逻辑, 只有占位符
     'ths_client/data/hello.bin',  # 协议问候, 已零值化
     'docs/ApiConfig.xml',         # 同花顺产品接口定义(非个人)

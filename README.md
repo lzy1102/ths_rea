@@ -31,10 +31,11 @@
 11. [推送回报 / 心跳 / 断线重连](#推送回报--心跳--断线重连)
 12. [离线测试](#离线测试)
 13. [CI 与自动发布](#ci-与自动发布)
-14. [框架接入示例](#框架接入示例)
-15. [常见问题 FAQ](#常见问题-faq)
-16. [服务端常见应答对照](#服务端常见应答对照)
-17. [包结构与开发](#包结构与开发)
+14. [安全与开源](#安全与开源)
+15. [框架接入示例](#框架接入示例)
+16. [常见问题 FAQ](#常见问题-faq)
+17. [服务端常见应答对照](#服务端常见应答对照)
+18. [包结构与开发](#包结构与开发)
 
 ---
 
@@ -568,6 +569,25 @@ git tag -a v0.13.0 -m "..." && git push origin v0.13.0   # 打标签即发布
 > 标签推送前请先把 `pyproject.toml` 的 `version` 和 `ths_client/__init__.py` 的
 > `__version__` 改成新版本号，否则版本校验步骤会拦下。
 
+**安全闸门**（自动拦截敏感信息）
+
+发版流程里有两道强制检查，任何一项发现敏感信息都会**直接失败、不会产出 Release**：
+
+| 闸门 | 检查内容 |
+|---|---|
+| ①源码 + git 历史 | `tools/prepublish_audit.py --history`：账号/股东号/MAC/GUID/电脑名/用户名/内网IP/32位散列 |
+| ②构建产物 | `tools/audit_artifacts.py`：扫 whl（含内嵌 README 的 METADATA）与 sdist 全部文件 |
+
+本地也可手动跑：
+
+```bash
+python tools/prepublish_audit.py --history   # 源码 + 全部提交历史
+python tools/audit_artifacts.py dist/        # 构建产物
+```
+
+> 敏感信息一旦进了 git 历史，仅删除文件是不够的——必须重写历史。
+> 处理流程见 `docs/开源与安全.md`。
+
 **发到 PyPI**（可选，两步配置）
 1. 仓库 Settings → Secrets → 新建 `PYPI_API_TOKEN`（PyPI 的 API token）
 2. 仓库 Settings → Variables → 新建变量 `PYPI_PUBLISH`，值 `true`
@@ -696,6 +716,20 @@ python -m pip wheel . -w dist --no-deps
 
 ---
 
-## License
+## 安全与开源
 
+本项目处理真实交易账户，**账户信息严禁进入仓库**。仓库内置两道 CI 安全闸门：
+
+```bash
+python tools/prepublish_audit.py --history   # 源码 + 全部 git 历史
+python tools/audit_artifacts.py dist/        # 构建产物（含内嵌 README 的 whl）
+```
+
+处理规范、敏感信息分类、历史重写操作手册见 **[docs/开源与安全.md](docs/开源与安全.md)**。
+
+发现敏感信息请勿公开讨论，直接提 Issue（不要贴原文）。
+
+---
+
+## License
 MIT

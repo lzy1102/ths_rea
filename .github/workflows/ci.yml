@@ -60,10 +60,25 @@ jobs:
           python -c "import Crypto; print('pycryptodome', Crypto.__version__)"
           python tests/test_offline.py
 
+  audit:
+    name: 敏感信息审计（源码+历史）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # 必须完整历史, 否则 --history 只看得到1个提交
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 审计源码与 git 历史
+        run: python tools/prepublish_audit.py --history
+
   build:
     name: 构建 wheel/sdist
     runs-on: ubuntu-latest
-    needs: test
+    needs: [test, audit]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -121,6 +136,9 @@ jobs:
             || /tmp/venv/Scripts/python -c "import ths_client; print('installed', ths_client.__version__)"
           /tmp/venv/bin/python -m ths_client.capture_orders --help >/dev/null \
             || /tmp/venv/Scripts/python -m ths_client.capture_orders --help >/dev/null
+
+      - name: 审计构建产物（wheel METADATA 会内嵌 README）
+        run: python tools/audit_artifacts.py dist/
 
       - uses: actions/upload-artifact@v4
         with:

@@ -87,11 +87,32 @@ sell_market(code, qty, sjwt=None, market=None, zxjg=None, bhjg=None) -> dict
 limit_order(code, qty, price, is_sell=False, market=None) -> dict
 ```
 
-### 4.3 预检（只读）
+### 4.3 预检 / 行情（只读）
 
 ```python
-precheck(code, qty=100, market=None) -> dict   # 0124 可买/可卖校验
+precheck(code, qty=100, market=None) -> dict
+quote(code, market=None) -> dict   # 盘中实时快照
 ```
+
+**盘中预检走推送通道**：交易时段柜台对 0124 的应答以 **0x50 行情推送**返回（不是 0x10），
+`precheck()` 已自动兼容（内部同时等两个通道，命中该股票的推送即返回，标 `via_push=True`）。
+
+`quote()` 返回：
+
+```python
+{'code': '601398', 'name': '工商银行', 'open': 8.47, 'high': 8.65, 'low': 8.44,
+ 'last': 8.48, 'volume': 293862980.0, 'amount': 1142580133.0,
+ 'time': '1509560775', 'via_push': True}
+```
+
+| 字段 | 来源 | 说明 |
+|---|---|---|
+| open/high/low/volume/amount | 推送 k=v 文本 | 当日开盘/最高/最低/成交量/成交额 |
+| **last（最新价）** | 推送二进制区 float32 (off=194) | **仅主板沪深验证可靠**（9 只样本） |
+| time | `T_JS` | 柜台时间字段 |
+
+⚠️ 创业板(300xxx)/科创板(688xxx) 记录布局不同，取不到 `last`（返回 None，不用未验证的值）；
+收盘后柜台改回 0x10 应答，`last` 同样为 None。
 
 ### 4.4 各组合实测参数
 

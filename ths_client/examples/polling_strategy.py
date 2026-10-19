@@ -4,9 +4,9 @@
 
     python ths_client/examples/polling_strategy.py --codes 601398,000001 --qty 100
 
-【重要】本包不提供行情源。示例用 `precheck()` 应答里的 `open=` 作为参考价,
-这只能满足"参考价低于/高于某阈值"这类粗条件。真做策略请自行接行情源
-(券商 Level-2 / 第三方 / 自建), 然后替换 get_price() 实现即可 —— 其余流程不变。
+取价用 `cli.quote()` 的盘中实时快照(最新价在行情推送的二进制区)。
+注意: 最新价目前只在**主板沪深**验证可靠, 创业板/科创板会回退到当日开盘价。
+需要 Level-2 / 五档 / 逐笔数据时, 自行接第三方行情源, 只替换 get_price() 即可。
 """
 import argparse
 import re
@@ -17,12 +17,18 @@ from ths_client import TradeClient
 
 
 def get_price(cli, code, market):
-    """参考价: 预检应答的 open=。真实策略请替换为行情源取价。"""
+    """最新价。
+
+    quote() 返回盘中实时快照(开/高/低/最新/量额)。最新价在行情推送的二进制区,
+    仅**主板沪深**验证可靠; 创业板/科创板记录布局不同, last 可能为 None,
+    此时回退到当日开盘价(仅够做粗条件判断)。收盘后无最新价。
+    """
     try:
-        r = cli.precheck(code, 100, market=market)
-        m = re.search(r'open=([0-9.]+)', r['text'])
-        if m:
-            return float(m.group(1))
+        q = cli.quote(code, market=market)
+        if q.get('last'):
+            return q['last']
+        if q.get('open'):
+            return q['open']
     except Exception:
         pass
     return None
@@ -32,13 +38,13 @@ def main():
     ap = argparse.ArgumentParser(description='轮询策略骨架')
     ap.add_argument('--codes', default='601398', help='逗号分隔股票代码')
     ap.add_argument('--qty', type=int, default=100)
+    ap.add_argument('--below', type=float, default=None, help='价低于该值则买入')
     ap.add_argument('--interval', type=float, default=15.0)
     ap.add_argument('--times', type=int, default=0, help='轮询次数(0=不限)')
     ap.add_argument('--limit', action='store_true', help='用限价单而非市价单')
     ap.add_argument('--dry-run', action='store_true', help='只打印不下单')
     a = ap.parse_args()
 
-    ap.add_argument('--below', type=float, default=None, help='价低于该值则买入')
     codes = [c.strip() for c in a.codes.split(',') if c.strip()]
     cli = TradeClient.from_profile()
     cli.start()

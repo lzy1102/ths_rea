@@ -336,7 +336,7 @@ cli.close()                                # 或使用 with 语句
 
 > 顺序敏感：`login → bootstrap → 业务消息`。跳过 bootstrap 会回"数据包无效：帐户无效"。
 
-### 预检（只读）
+### 预检 / 行情（只读）
 
 ```python
 r = cli.precheck('601398', qty=100)

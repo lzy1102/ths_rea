@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""密钥嗅探: 挂钩 xiadan.exe 的 DES 密钥装载函数 (0xe35230), 收齐所有连接通道的
+"""密钥嗅探: 挂钩 xiadan.exe 的 DES 密钥装载函数 (RVA 0xa35230), 收齐所有连接通道的
 密钥/IV, 用于解开非交易通道 (资讯/资产服务) 的密文。
 
 用法 (需 pip install "ths-trade-client[capture]"):
@@ -7,7 +7,7 @@
     # 之后在同花顺里打开交易窗口(触发各通道建连), 工具会把每次密钥装载打印出来
 
 原理 (逆向结论, 见 docs/下单逆向进展-3.md):
-    0xe35230(dst, len, src) —— src 指向 32B 密钥描述符副本, 前 8B = 该通道的
+    0xa35230(dst, len, src) —— src 指向 32B 密钥描述符副本, 前 8B = 该通道的
     IV (KEY 固定为 b181838083888d81, 编译在 exe 内, 各通道共用)。
     挂钩该函数即可拿到"每个连接各自的 IV"。
 """
@@ -19,8 +19,9 @@ import time
 
 JS = r"""
 var _delta = null;
-var ANCHOR = ptr('0x2c13450');
-var A1 = '558bec6aff68c22a540364a1';
+var KEYLOAD_RVA = 0xa35230;   // RVA(不是VA); 绝对地址 = 模块基址 + RVA
+                             // (实测本版本 xiadan.exe: 序言 50 51 83 ec 14 53 56 57 @base+0xa35230)
+var PROLOGUE = '505183ec14535657';  // 8字节: push eax; push ecx; sub esp,0x14; push ebx/esi/edi
 function hexAt(p, n) {
     try {
         var b = new Uint8Array(p.readByteArray(n));
@@ -28,27 +29,23 @@ function hexAt(p, n) {
         return s;
     } catch (e) { return null; }
 }
-function tryDelta(d) {
-    try {
-        if (hexAt(ANCHOR.add(d), 12) !== A1) return;
-        _delta = d;
-    } catch (e) {}
-}
 function findDelta() {
-    var m = Process.mainModule;
-    tryDelta(m.base.sub(ptr('0xe30000')));
-    if (_delta === null) tryDelta(ptr(0));
-    if (_delta === null) {
-        try {
-            var hits = Memory.scanSync(m.base, m.size, '55 8b ec 6a ff 68 c2 2a 54 03 64 a1');
-            for (var i = 0; i < hits.length && _delta === null; i++) tryDelta(hits[i].address.sub(ANCHOR));
-        } catch (e) {}
-    }
-    return _delta;
+    // PE ImageBase = 0x400000, 这里的地址都是 RVA -> delta 就是模块基址
+    var base = Process.mainModule.base;
+    try {
+        if (hexAt(base.add(KEYLOAD_RVA), 8) === PROLOGUE) { _delta = base; return _delta; }
+        // 基址推导不对时, 全模块扫特征序言反推
+        var hits = Memory.scanSync(base, base.readU32(), PROLOGUE.slice(0, 6).match(/../g).join(' '));
+        for (var i = 0; i < hits.length; i++) {
+            var cand = hits[i].address.sub(KEYLOAD_RVA);
+            if (hexAt(cand.add(KEYLOAD_RVA), 8) === PROLOGUE) { _delta = cand; return _delta; }
+        }
+    } catch (e) {}
+    return null;
 }
 function A(x) { return ptr(x).add(_delta === null ? ptr(0) : _delta); }
 function hookKeyLoad() {
-    Interceptor.attach(A('0xe35230'), {
+    Interceptor.attach(A(KEYLOAD_RVA), {
         onEnter: function (args) {
             try {
                 var dst = args[0], src = args[2];

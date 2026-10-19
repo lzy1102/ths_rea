@@ -82,7 +82,9 @@ jobs:
     name: 发布到 PyPI (可选)
     runs-on: ubuntu-latest
     needs: build
-    if: ${{ secrets.PYPI_API_TOKEN != '' }}
+    # 注意: job 级 if 不能引用 secrets 上下文 (GitHub 限制, 会让整个 workflow 失效)
+    #      -> 用仓库变量 vars.PYPI_PUBLISH 做开关, token 只在 step 级用
+    if: ${{ vars.PYPI_PUBLISH == 'true' }}
     environment: pypi
     permissions:
       id-token: write          # trusted publishing

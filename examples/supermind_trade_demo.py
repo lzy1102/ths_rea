@@ -21,7 +21,7 @@ import time
 import datetime as dt
 
 # ============ 1. 配置区 ============
-ACCOUNT_ID = "12345678"          # 已登录的资金账号（与终端里一致）
+ACCOUNT_ID = "12345678"          # 资金账号（务必改成你自己的，勿硬编码后开源）
 
 RISK = {
     "max_order_amount": 10000,   # 单笔最大金额（元）

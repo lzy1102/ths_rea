@@ -13,6 +13,10 @@ on:
 permissions:
   contents: write          # 需要上传产物到 Release
 
+env:
+  PYTHONIOENCODING: utf-8
+  PYTHONUTF8: '1'
+
 jobs:
   build:
     name: 构建发布产物

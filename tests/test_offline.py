@@ -20,6 +20,13 @@ import sys
 import zlib
 from pathlib import Path
 
+# Windows 控制台默认 cp1252/cp936, 编不了中文测试名 -> 强制 UTF-8 输出
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 

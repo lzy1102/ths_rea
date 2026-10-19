@@ -45,7 +45,7 @@ from . import trade_conn as TC
 from . import parse as _parse
 from . import trade_msg as TM
 
-__all__ = ['TradeClient', 'load_profile', 'parse_kv']
+__all__ = ['TradeClient', 'load_profile', 'parse_kv', 'clean_text']
 
 
 def load_profile(path: str = None) -> dict:
@@ -286,12 +286,14 @@ class TradeClient:
     def _send_recv(self, wire_cmd: bytes, pt: bytes, accept_push: str = None) -> dict:
         self.conn.send_msg(wire_cmd, pt, self.info['iv'])
         r = self.conn.recv_msg(accept_push=accept_push)
-        text = r['plaintext'].decode('gbk', 'replace').replace('\x00', '')
-        out = {'type': r['type'], 'plaintext': r['plaintext'], 'text': text}
         if r.get('via_push'):
-            # 盘中预检走 0x50 推送通道: 补上 kv 便于直接取行情
-            out['via_push'] = True
-            out['kv'] = parse_kv(r['plaintext'].decode('gbk', 'replace'))
+            # 盘中预检走 0x50 推送通道: 本身就是纯文本, 不要用 clean_text 裁剪
+            raw_text = r['plaintext'].decode('gbk', 'replace').replace('\x00', '')
+            out = {'type': r['type'], 'plaintext': r['plaintext'], 'text': raw_text,
+                   'via_push': True, 'kv': parse_kv(raw_text)}
+            return out
+        text = clean_text(r['plaintext'])
+        out = {'type': r['type'], 'plaintext': r['plaintext'], 'text': text}
         return out
 
     def precheck(self, code: str, qty: int = 100, market: str = None) -> dict:
@@ -616,6 +618,40 @@ def _gbk_runs(pt: bytes, min_bytes: int = 4) -> list:
         except Exception:
             pass
     return out
+
+
+_CJK_RUN_RE = re.compile(rb'(?:[\xa1-\xfe]{2}){2,}')
+
+
+def clean_text(pt: bytes) -> str:
+    """应答明文 -> 可读文本。
+
+    柜台应答 = 二进制结构头 + 业务文本, 直接 decode 会看到一堆乱码(GBK 把二进制头
+    解成了"看起来像汉字"的字符, 连 isprintable 都拦不住)。
+    做法: 用字节级正则找出真正的中文段, **从最后一个中文段起点往后取**——业务文本
+    (如"资金不足:fund_account_id[...]")总在二进制头之后, 而乱码头里的"汉字"通常
+    零散且不含完整词组。残留的二进制折成 <bin:N>。
+
+    仅用于 0x10 应答; 0x50 推送本身是纯文本, 不要用这个函数。
+    ⚠️ 柜台错误文本里可能带资金账号等账号信息(如 fund_account_id[...]),
+       贴到公开 Issue 前请先脱敏。
+    """
+    runs = list(_CJK_RUN_RE.finditer(pt))
+    if not runs:
+        return pt.decode('gbk', 'replace').replace('\x00', '').strip()
+    tail = pt[runs[-1].start():].decode('gbk', 'replace').replace('\x00', '')
+    out, gap = [], 0
+    for ch in tail:
+        if ch.isprintable() or ch in '\r\n\t':
+            if gap:
+                out.append('<bin:%d>' % gap)
+                gap = 0
+            out.append(ch)
+        else:
+            gap += 1
+    if gap:
+        out.append('<bin:%d>' % gap)
+    return ''.join(out).strip()
 
 
 def parse_kv(text: str) -> dict:

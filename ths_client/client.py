@@ -283,11 +283,16 @@ class TradeClient:
             raise ValueError('未配置股东号: market=%s (沪="2" 深="1")' % market)
         return g
 
-    def _send_recv(self, wire_cmd: bytes, pt: bytes) -> dict:
+    def _send_recv(self, wire_cmd: bytes, pt: bytes, accept_push: str = None) -> dict:
         self.conn.send_msg(wire_cmd, pt, self.info['iv'])
-        r = self.conn.recv_msg()
+        r = self.conn.recv_msg(accept_push=accept_push)
         text = r['plaintext'].decode('gbk', 'replace').replace('\x00', '')
-        return {'type': r['type'], 'plaintext': r['plaintext'], 'text': text}
+        out = {'type': r['type'], 'plaintext': r['plaintext'], 'text': text}
+        if r.get('via_push'):
+            # 盘中预检走 0x50 推送通道: 补上 kv 便于直接取行情
+            out['via_push'] = True
+            out['kv'] = parse_kv(r['plaintext'].decode('gbk', 'replace'))
+        return out
 
     def precheck(self, code: str, qty: int = 100, market: str = None) -> dict:
         """0124 预检 (只读)。返回 {'type','plaintext','text'}。"""
@@ -300,7 +305,7 @@ class TradeClient:
             pt = TM.build_precheck(code, sess=self.info['sess'], zjzh=self.zjzh,
                                    gdzh=self._gdzh_for(market), market=market,
                                    seq=self.seq, tick=self.tick())
-        return self._send_recv(TM.WIRE_CMD['precheck'][1], pt)
+        return self._send_recv(TM.WIRE_CMD['precheck'][1], pt, accept_push=code)
 
     def buy_market(self, code: str, qty: int, sjwt: int = None, market: str = None,
                    zxjg: float = None) -> dict:

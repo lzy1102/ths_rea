@@ -287,23 +287,49 @@ class TradeConn:
         return outs
 
     # ---- 收 S2C 业务帧 ----
-    def recv_msg(self, timeout: float = None) -> dict:
+    def recv_msg(self, timeout: float = None, accept_push: str = None) -> dict:
         """收一帧 S2C 并解包/解密/解压。返回 {type, sess, psize, plaintext}。
 
         启动读线程后, 应答帧从响应队列取 (推送帧已在读线程里分流到推送队列);
         未启动读线程时退回同步 recv_frame。
         timeout: 等待应答的最长秒数 (仅队列模式有效)。
+        accept_push: 指定股票代码后, **同时**等待该代码的 0x50 行情推送并把它当作
+            结果返回 (实测: 盘中 0124 预检的应答走 0x50 推送通道, 收盘后才回 0x10;
+            不开这个开关时盘中 precheck() 会一直等到超时)。
+            期间收到的其它股票推送不会丢, 仍保留在 self.pushes 里。
         """
-        if self._reader_on:
+        if not self._reader_on:
+            return self._decode_s2c(self.recv_frame())
+        if timeout is None and accept_push is not None:
+            timeout = 15.0          # 盘中预检走推送, 不能无限等 0x10 应答
+        if accept_push is None:
             try:
                 fr = self._resp_q.get(timeout=timeout)
             except queue.Empty:
                 raise TimeoutError('等待柜台应答超时 (%.1fs)' % (timeout or 0))
             if isinstance(fr, Exception):
                 raise fr
-        else:
-            fr = self.recv_frame()
-        return self._decode_s2c(fr)
+            return self._decode_s2c(fr)
+
+        want = accept_push.strip()
+        deadline = None if timeout is None else time.time() + timeout
+        while True:
+            try:                                  # 先取应答帧
+                fr = self._resp_q.get(timeout=0.3)
+                if isinstance(fr, Exception):
+                    raise fr
+                return self._decode_s2c(fr)
+            except queue.Empty:
+                pass
+            while not self._push_q.empty():      # 再扫推送队列找目标代码
+                p = self._push_q.get_nowait()
+                if (p.get('kv') or {}).get('zqdm', '').strip() == want:
+                    info = {'type': 0x50, 'sess': p.get('sess'),
+                            'plaintext': p['plaintext'], 'text': p.get('text', ''),
+                            'via_push': True}
+                    return info
+            if deadline is not None and time.time() >= deadline:
+                raise TimeoutError('等待柜台应答/行情推送超时 (%.1fs)' % timeout)
 
     def _decode_s2c(self, fr: dict) -> dict:
         info = parse_s2c(fr['content'])

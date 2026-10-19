@@ -14,6 +14,7 @@ fixtures/ 里是从真客户端抓包脱敏而来的黄金样本 (golden fixture
   limit_buy_body.bin      上述限价单的 zlib+DES 密文
   s2c_funds_1006.bin      资金明细应答明文 (真柜台返回)
 """
+import collections
 import re
 import struct
 import sys
@@ -35,7 +36,7 @@ from ths_client import trade_msg as TM                 # noqa: E402
 from ths_client.trade_crypt.body_codec import (       # noqa: E402
     DES_KEY, body_decrypt, body_encrypt, des_cbc_encrypt, s2c_decrypt, _des_cbc)
 from ths_client.trade_conn import (                    # noqa: E402
-    build_frame, build_content, parse_frame, parse_s2c)
+    TradeConn, build_frame, build_content, parse_frame, parse_s2c)
 
 FIX = Path(__file__).resolve().parent / 'fixtures'
 
@@ -188,6 +189,64 @@ def test_build_content_len_fields():
     assert c[6:8] == b'\x02\x21'
     assert struct.unpack('<HH', c[12:16]) == (zlen, len(pt))
     assert c[8:12] == b'\x00\x00\x10\x00'
+
+
+def test_recv_msg_accept_push():
+    """盘中 0124 预检的应答走 0x50 推送通道: recv_msg(accept_push=..) 应命中该股票的推送。
+
+    2026-10-19 盘中实测发现: 收盘时柜台回 0x10, 盘中改为 0x50 行情推送。
+    若无此回落逻辑, precheck() 会一直等到超时。
+    """
+    import queue as _q
+    conn = TradeConn.__new__(TradeConn)          # 不建连, 只测队列逻辑
+    conn._resp_q = _q.Queue()
+    conn._push_q = _q.Queue()
+    conn._reader_on = True
+    conn.pushes = collections.deque(maxlen=50)
+    mk = lambda code, name: {'type': 0x50, 'sess': b'\x00\x00\x00\x00',
+                             'plaintext': ('zqdm=%s&zqmc=%s&zgj=8.6300' % (code, name)).encode('gbk'),
+                             'text': 'zqdm=%s' % code,
+                             'kv': {'zqdm': code, 'zqmc': name, 'zgj': '8.6300'}}
+    conn._push_q.put(mk('000001', '平安银行'))    # 其它股票在前, 不应被误取
+    conn._push_q.put(mk('601398', '工商银行'))
+
+    r = conn.recv_msg(timeout=3, accept_push='601398')
+    assert r['via_push'] is True
+    assert r['type'] == 0x50
+    assert b'601398' in r['plaintext'] and '工商银行'.encode('gbk') in r['plaintext']
+
+    # 非目标代码: 应超时而不是返回别人的行情
+    try:
+        conn.recv_msg(timeout=1, accept_push='600000')
+        raise AssertionError('应超时')
+    except TimeoutError:
+        pass
+
+
+def test_recv_msg_resp_priority():
+    """有 0x10 应答时优先返回应答, 不被推送抢走。"""
+    import queue as _q
+    conn = TradeConn.__new__(TradeConn)
+    conn._resp_q = _q.Queue()
+    conn._push_q = _q.Queue()
+    conn._reader_on = True
+    conn.pushes = collections.deque(maxlen=50)
+    conn.iv = bytes(8)
+    conn.sess = None
+    conn._dump = lambda *a, **k: None
+    conn._push_q.put({'type': 0x50, 'plaintext': b'zqdm=601398', 'kv': {'zqdm': '601398'}})
+
+    # 造一个合法的 0x10 应答帧: body = DES-CBC([u32 len][zlib(明文)])
+    pt = fx('s2c_funds_1006.bin')
+    z = zlib.compress(pt, 6)
+    body = des_cbc_encrypt(struct.pack('<I', len(z)) + z, bytes(8))
+    content = b'\xfd\xff' + b'\x00\x00\x00\x00' + b'\x00\x00\x00' + bytes([0x10]) + body
+    conn._resp_q.put({'content': content})
+
+    r = conn.recv_msg(timeout=3, accept_push='601398')
+    assert r.get('via_push') is None, '不应回落到推送'
+    assert r['type'] == 0x10
+    assert r['plaintext'] == pt          # 解密解压后与原文一致
 
 
 if __name__ == '__main__':

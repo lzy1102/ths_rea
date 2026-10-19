@@ -74,7 +74,10 @@ def ok(value: str, path: str) -> bool:
         return True
     if any(value.startswith(p) for p in ALLOW_PREF):
         return True
-    if path in ALLOW_PATHS:
+    base = os.path.basename(path)
+    if path in ALLOW_PATHS or base in ALLOW_PATHS:
+        return True
+    if any(base == x for x in ALLOW_PATHS):
         return True
     return False
 

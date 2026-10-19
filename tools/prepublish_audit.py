@@ -54,7 +54,7 @@ ALLOW_BASENAMES = {
     'prepublish_audit.py',        # 审计脚本自身的示例值
     'ApiConfig.xml', 'RequestTypeV2Data.xml', 'RequestTypeV3Data.xml',
     'MarketData.xml', 'QuoteFieldData.xml', 'quote_fields.md', 'request_types.md',
-    'machine.py', 'hello.bin',
+    'machine.py', 'hello.bin', 'audit_artifacts.py', '开源与安全.md',
     'pyproject.toml', 'LICENSE', 'MANIFEST.in', '.gitignore',
 }
 # 数字"巧合"放行: 行情字段ID/偏移量/日期, 非账号

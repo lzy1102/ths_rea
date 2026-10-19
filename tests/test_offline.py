@@ -236,10 +236,11 @@ def test_recv_msg_resp_priority():
     conn._dump = lambda *a, **k: None
     conn._push_q.put({'type': 0x50, 'plaintext': b'zqdm=601398', 'kv': {'zqdm': '601398'}})
 
-    # 造一个合法的 0x10 应答帧: body = DES-CBC([u32 len][zlib(明文)])
+    # 造一个合法的 0x10 应答帧: body = DES-CBC([u32 明文长][zlib(明文)])
+    # (协议里长度头 == 解压后明文长度, 见 s2c_decrypt)
     pt = fx('s2c_funds_1006.bin')
     z = zlib.compress(pt, 6)
-    body = des_cbc_encrypt(struct.pack('<I', len(z)) + z, bytes(8))
+    body = des_cbc_encrypt(struct.pack('<I', len(pt)) + z, bytes(8))
     content = b'\xfd\xff' + b'\x00\x00\x00\x00' + b'\x00\x00\x00' + bytes([0x10]) + body
     conn._resp_q.put({'content': content})
 

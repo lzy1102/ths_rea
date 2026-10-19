@@ -30,30 +30,27 @@
 10. [设备信息（机器指纹）](#设备信息机器指纹)
 11. [推送回报 / 心跳 / 断线重连](#推送回报--心跳--断线重连)
 12. [离线测试](#离线测试)
-13. [框架接入示例](#框架接入示例)
-14. [常见问题 FAQ](#常见问题-faq)
-15. [服务端常见应答对照](#服务端常见应答对照)
-16. [包结构与开发](#包结构与开发)
+13. [CI 与自动发布](#ci-与自动发布)
+14. [框架接入示例](#框架接入示例)
+15. [常见问题 FAQ](#常见问题-faq)
+16. [服务端常见应答对照](#服务端常见应答对照)
+17. [包结构与开发](#包结构与开发)
+
 ---
 
 ## 五分钟上手
-
 ```bash
 # 1) 安装（含抓包工具）
 pip install "ths-trade-client[capture]"
-
 # 2) 生成配置：开着 xiadan（同花顺下单程序），运行：
 ths-capture-profile
 #    → 自动抓取并写出 local_profile.json（账号/股东号/设备信息/站点列表）
 ```
-
 ```python
 # 3) 使用
 from ths_client import TradeClient
-
 cli = TradeClient.from_profile()   # 读 local_profile.json
 cli.start()                        # 连接 + 登录 + 启动序列（一行到位）
-
 print(cli.precheck('601398', qty=100)['text'])      # 只读预检（行情/可买数量）
 print(cli.buy_market('601398', 100)['text'])        # 真实市价买入 100 股 (沪)
 print(cli.buy_market('000001', 100)['text'])        # 深市市价买入 (自动识别市场)
@@ -97,11 +94,17 @@ pip install "ths-trade-client[legacy]"    # 核心 + 旧版网页登录模块（
 
 ### 方式 2：wheel 分发
 
+从 [Releases](https://github.com/lzy1102/ths_rea/releases) 下载 `ths_trade_client-*.whl`：
+
 ```bash
-# 构建
-python -m pip wheel . -w dist --no-deps
-# 安装（拷到任何机器）
-pip install ths_trade_client-0.8.0-py3-none-any.whl
+pip install ths_trade_client-0.13.0-py3-none-any.whl
+```
+
+或本地构建：
+
+```bash
+python -m build            # 产物在 dist/
+pip install dist/ths_trade_client-0.13.0-py3-none-any.whl
 ```
 
 ### 方式 3：源码开发
@@ -116,7 +119,7 @@ pip install -e .
 
 ```python
 import ths_client
-print(ths_client.__version__)          # 0.8.0
+print(ths_client.__version__)          # 0.13.0
 from ths_client import TradeClient, load_profile, parse_kv, machine
 ```
 
@@ -539,6 +542,40 @@ python tests/test_offline.py       # 或 pytest tests/test_offline.py
 
 ---
 
+## CI 与自动发布
+
+**CI**（push main / PR 自动触发）
+
+| 平台 | Python |
+|---|---|
+| ubuntu | 3.9 / 3.13 / 3.14 / 3.15 |
+| windows | 3.12 / 3.15 |
+| macos | 3.12 |
+
+每个组合跑 12 项离线回归 + 导入自检；3.9 上额外跑依赖地板测试（`pycryptodome<4`）。
+测试全绿后再构建 wheel/sdist，并校验 wheel 确实包含数据模板与两个命令入口点。
+
+**发版**（二选一）
+
+```bash
+git tag -a v0.13.0 -m "..." && git push origin v0.13.0   # 打标签即发布
+# 或在 GitHub 页面 Release -> Draft a release -> Publish
+```
+
+`Release` workflow 会：跑测试守门 → 校验标签与 `pyproject` 版本一致 → 构建 →
+`twine check` → 自动创建 Release 并挂上 `.whl` 与 `.tar.gz`（Release 不存在会自动建）。
+
+> 标签推送前请先把 `pyproject.toml` 的 `version` 和 `ths_client/__init__.py` 的
+> `__version__` 改成新版本号，否则版本校验步骤会拦下。
+
+**发到 PyPI**（可选，两步配置）
+1. 仓库 Settings → Secrets → 新建 `PYPI_API_TOKEN`（PyPI 的 API token）
+2. 仓库 Settings → Variables → 新建变量 `PYPI_PUBLISH`，值 `true`
+
+之后每次发版会连同发布到 PyPI（未配置则自动跳过）。
+
+---
+
 ## 框架接入示例
 
 包内 `examples/` 两个可直接运行的示例（都在 `ths_client/examples/`）：
@@ -624,36 +661,38 @@ A股交易时间外（9:30-11:30 / 13:00-15:00）柜台不接单。盘后登录/
 ```
 ths_client/
 ├── client.py            # TradeClient 高层 API（推荐入口）
-├── trade_conn.py        # 柜台TCP: 问候/登录/会话/收发帧/启动序列
-├── trade_msg.py         # 报文构造: 登录/0124预检/0221买入/0321卖出 (模板+MD5签名)
+├── trade_conn.py        # 柜台TCP: 问候/登录/会话/收发帧/启动序列/读线程/心跳/重连
+├── trade_msg.py         # 报文构造: 登录/预检/市价/限价/资金查询 (脱敏模板+MD5签名)
+├── parse.py             # hd1.0 应答结构化解析 (fields/columns/rows/stats)
 ├── machine.py           # 设备信息采集与注入 (Windows/Linux)
-├── capture_profile.py   # ths-capture-profile 抓包提取工具
+├── capture_profile.py   # ths-capture-profile 抓包提取配置工具
+├── capture_orders.py    # ths-capture-orders 委托报文抓包（自动扫 IV）
 ├── trade_crypt/         # DES-CBC + zlib 编解码 (收发双向)
 ├── data/                # 运行必需模板: hello.bin + startup/ + startup_sh/
-└── examples/            # 示例脚本
+└── examples/            # monitor.py 账户监控 / polling_strategy.py 轮询策略
+
+.github/workflows/       # CI + Release 自动打包
+tests/                   # test_offline.py + fixtures/(抓包脱敏黄金样本)
+tools/                   # keysniff.py 等逆向工具（不随包分发）
+docs/                    # API.md / CHANGELOG.md / 工作计划 / 逆向进展
 ```
 
-开发工具（仓库内 `tools/`，不随包分发）：`login_watch.py`（登录抓包）、
-`deep_capture.py`（报文构建/密钥捕获）等。
+开发工具（仓库内 `tools/`，不随包分发）：`keysniff.py`（各连接 DES 密钥嗅探）等。
 
 ```bash
-# 离线自测（无网络）
-python -c "
-from ths_client import trade_msg as TM
-from ths_client.trade_crypt.body_codec import body_encrypt, body_decrypt
-import hashlib
-pt = TM.build_buy_sh_sjwt('601398', 100, sess=bytes(4), zjzh='12345678',
-                          gdzh='A123456789', zxjg=8.5, seq=TM.MsgSeq(2), tick=1)
-assert hashlib.md5(pt[:8]+bytes(16)+pt[24:]).digest() == pt[8:24]
-b, _ = body_encrypt(pt, bytes(8)); assert body_decrypt(b, bytes(8)) == pt
-print('OK')
-"
+# 离线自测
+python tests/test_offline.py
 
-# 构建 wheel
+# 构建 wheel + sdist
+python -m build
+
+# 只构建 wheel
 python -m pip wheel . -w dist --no-deps
 ```
 
-协议逆向记录与工作计划：`docs/下单逆向进展-3.md`、`docs/工作计划.md`。
+协议逆向记录与工程文档：
+[docs/API.md](docs/API.md)（API 参考）· [docs/CHANGELOG.md](docs/CHANGELOG.md)（版本演进）·
+[docs/下单逆向进展-3.md](docs/下单逆向进展-3.md)（协议细节）· [docs/工作计划.md](docs/工作计划.md)。
 
 ---
 

@@ -66,12 +66,16 @@ jobs:
           name: release-dist
           path: dist/
 
-      - name: 上传 whl/sdist 到 Release
+      - name: 上传 whl/sdist 到 Release (不存在则自动创建)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.event.release.tag_name || github.ref_name }}
         run: |
-          gh release upload "$TAG" dist/* --clobber
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* --title "$TAG" --generate-notes
+          fi
           echo "已附加: $(ls dist/)"
 
   pypi:

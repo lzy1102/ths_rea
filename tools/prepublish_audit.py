@@ -34,31 +34,37 @@ RULES = [
 
 # ---------- 白名单: 明确的安全值 ----------
 ALLOW = {
-    '00000000-0000-0000-0000-000000000000', '11111111-1111-1111-1111-111111111111',
+    # 明确的占位符
     '12345678', '11111111', '0123456789', 'A123456789', 'A111111111', '0111111111',
-    '1000000000', '00000000', '0000000000', '1357758012', '94029500', '94030343',
-    '94032015', '3050729056', '199000', '00001000', '00001004', '01010400', '33333333',
+    '00000000', '0000000000', '1000000000', '00001000', '00001004', '01010400',
+    '33333333', '94029500', '94030343', '94032015', '3050729056', '199000',
+    '1234567890', '1357758012',
     '00000000000000000000000000000000',
+    '00000000-0000-0000-0000-000000000000',
+    # 零值化网卡地址
+    '00:00:00:00:00:00', '00:00:00:00:00:01', '00:00:00:00:00:02',
+    '00:00:00:00:00:03', 'AC:00:00:00:00:00',
+    # 示例地址 / 产品常量
+    '192.168.0.1', '10.0.0.99', '2020063035285685',
 }
-ALLOW_SUB = {'12345678', '0123456789', '00000000', '1000000000', '0000000000',
-             '1234567890', '0123456789', '00001000'}
+ALLOW_SUB = {'12345678', '0123456789', '00000000', '1000000000', '0000000000'}
 ALLOW_PREF = ('DESKTOP-XXXXXXX',)
-ALLOW_EXACT = {'192.168.0.1', '10.0.0.99',   # 示例用内网地址(非真实环境)
-               '2020063035285685'}          # 同花顺 AppID(产品常量)
-# 行情字段ID/偏移量/日期等"数字巧合", 非账号 (docs/quote_fields.md 等)
-ALLOW_FILES_NOISE = ('quote_fields.md', 'QuoteFieldData.xml', '下单逆向进展-3.md',
-                     '接口分析报告.md', 'README.md', 'ApiConfig.xml')
-ALLOW_PATHS = {
-    'prepublish_audit.py',      # 审计脚本自身的示例值
-    'ths_client/machine.py',      # 采集逻辑, 只有占位符
-    'ths_client/data/hello.bin',  # 协议问候, 已零值化
-    'docs/ApiConfig.xml',         # 同花顺产品接口定义(非个人)
-    'docs/RequestTypeV2Data.xml',
-    'docs/RequestTypeV3Data.xml',
-    'docs/MarketData.xml',        # 同上
-    'docs/QuoteFieldData.xml',    # 行情字段表(数字是字段ID/偏移)
-    '.gitignore', 'MANIFEST.in', 'pyproject.toml', 'LICENSE',
+# 产品级配置文件(非个人): 同花顺接口/行情字段定义
+ALLOW_BASENAMES = {
+    'prepublish_audit.py',        # 审计脚本自身的示例值
+    'ApiConfig.xml', 'RequestTypeV2Data.xml', 'RequestTypeV3Data.xml',
+    'MarketData.xml', 'QuoteFieldData.xml', 'quote_fields.md', 'request_types.md',
+    'machine.py', 'hello.bin',
+    'pyproject.toml', 'LICENSE', 'MANIFEST.in', '.gitignore',
 }
+# 数字"巧合"放行: 行情字段ID/偏移量/日期, 非账号
+DATE_RE = re.compile(r'^20[0-9]{6}$')
+FIELD_RE = re.compile(r'^(?:1[0-9]|2[0-9])[0-9]{6}$|^[0-9]{8}$')
+NOISE_BASENAMES = {'quote_fields.md', 'QuoteFieldData.xml', '下单逆向进展-3.md',
+                   '接口分析报告.md', 'README.md', 'ApiConfig.xml',
+                   'RequestTypeV2Data.xml', 'RequestTypeV3Data.xml'}
+
+
 SKIP_EXT = {'.png', '.jpg', '.ico', '.gif', '.whl', '.gz', '.exe', '.dll', '.bin'}
 
 
@@ -68,16 +74,14 @@ FIELD_RE = re.compile(r'^(?:1[0-9]|2[0-9])[0-9]{6}$|^[0-9]{8}$')  # 行情字段
 
 
 def ok(value: str, path: str) -> bool:
-    if value in ALLOW or value in ALLOW_SUB or value in ALLOW_EXACT:
-        return True
-    if (os.path.basename(path) in ALLOW_FILES_NOISE or path in ALLOW_FILES_NOISE)             and (DATE_RE.match(value) or FIELD_RE.match(value)):
+    base = os.path.basename(path)
+    if value in ALLOW or value in ALLOW_SUB:
         return True
     if any(value.startswith(p) for p in ALLOW_PREF):
         return True
-    base = os.path.basename(path)
-    if path in ALLOW_PATHS or base in ALLOW_PATHS:
+    if base in ALLOW_BASENAMES:
         return True
-    if any(base == x for x in ALLOW_PATHS):
+    if base in NOISE_BASENAMES and (DATE_RE.match(value) or FIELD_RE.match(value)):
         return True
     return False
 

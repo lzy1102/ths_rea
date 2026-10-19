@@ -69,8 +69,11 @@ jobs:
       - name: 上传 whl/sdist 到 Release (不存在则自动创建)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 本 job 没有 checkout, gh 靠 git 找仓库会失败 -> 显式指定
+          GH_REPO: ${{ github.repository }}
           TAG: ${{ github.event.release.tag_name || github.ref_name }}
         run: |
+          ls -l dist/
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" dist/* --clobber
           else

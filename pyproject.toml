@@ -7,17 +7,25 @@ name = "ths-trade-client"
 version = "0.13.0"
 description = "同花顺柜台交易协议纯Python客户端 (登录/启动序列/预检/沪市市价买卖)"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [{ name = "ths_rea" }]
 keywords = ["ths", "同花顺", "trade", "trading", "a-share"]
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Operating System :: OS Independent",
     "Topic :: Office/Business :: Financial :: Investment",
 ]
 dependencies = [
-    "pycryptodome>=3.10",
+    # 3.23+ 起才有 3.13/3.14 wheel; 3.15 用户会解析到 4.x (已实测密文逐字节一致)
+    "pycryptodome>=3.23,<5",
 ]
 
 [project.optional-dependencies]

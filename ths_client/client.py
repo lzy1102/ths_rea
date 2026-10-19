@@ -296,6 +296,62 @@ class TradeClient:
         out = {'type': r['type'], 'plaintext': r['plaintext'], 'text': text}
         return out
 
+    # 行情推送里"最新价"的字节偏移 (float32); 部分记录会漂移, 故另有动态回退
+    LAST_PRICE_OFF = 194
+    LAST_PRICE_SCAN = (170, 215)
+
+    def quote(self, code: str, market: str = None) -> dict:
+        """取盘口快照 (只读)。返回 dict:
+
+        {'code','name','open','high','low','last','volume','amount','time','via_push'}
+
+        实测(2026-10-19 盘中): 0124 预检会触发一条 0x50 行情推送, k=v 部分给出
+        开/高/低/成交额/成交量, **最新价在二进制结构区** (float32, 通常 off=194)。
+
+        验证范围: 主板沪/深 601398/600519/600036/000001/000651/002594/601899/
+        601288/000858 共 9 只, off=194 全部落在 [低,高] 区间内 ✅。
+        **创业板(300xxx)/科创板(688xxx) 记录布局不同, 整段扫描都找不到落在
+        [低,高] 的 float32, 此时返回 last=None**(不猜、不返回未经验证的值)。
+        收盘后柜台改回 0x10 应答, 同样没有最新价 -> last=None。
+        """
+        market = market or TM.guess_market(code)
+        if market == '2':
+            pt = TM.build_precheck_sh(code, 100, sess=self.info['sess'], zjzh=self.zjzh,
+                                      gdzh=self._gdzh_for(market), seq=self.seq,
+                                      tick=self.tick())
+        else:
+            pt = TM.build_precheck(code, sess=self.info['sess'], zjzh=self.zjzh,
+                                   gdzh=self._gdzh_for(market), market=market,
+                                   seq=self.seq, tick=self.tick())
+        r = self._send_recv(TM.WIRE_CMD['precheck'][1], pt, accept_push=code)
+        return self.parse_quote(r, code)
+
+    @staticmethod
+    def parse_quote(r: dict, code: str = None) -> dict:
+        """从 0124 应答(或 0x50 行情推送)解析出盘口字段。"""
+        raw = r.get('plaintext', b'')
+        kv = r.get('kv') or parse_kv(clean_text(raw))
+        out = {'code': kv.get('zqdm') or code, 'name': kv.get('zqmc'),
+               'open': _f(kv.get('open')), 'high': _f(kv.get('zgj')),
+               'low': _f(kv.get('zdj')), 'last': None,
+               'volume': _f(kv.get('cjl')), 'amount': _f(kv.get('cjje')),
+               'time': kv.get('T_JS'), 'via_push': bool(r.get('via_push'))}
+        if out['high'] and out['low']:
+            lo, hi = out['low'], out['high']
+            off = TradeClient.LAST_PRICE_OFF
+            if len(raw) >= off + 4:
+                v = struct.unpack('<f', raw[off:off + 4])[0]
+                if lo <= v <= hi:
+                    out['last'] = round(v, 4)
+            if out['last'] is None:      # 回退: 在价格字段区里找落在 [低,高] 的 float32
+                a, b = TradeClient.LAST_PRICE_SCAN
+                for i in range(a, min(b, len(raw) - 4)):
+                    v = struct.unpack('<f', raw[i:i + 4])[0]
+                    if lo <= v <= hi:
+                        out['last'] = round(v, 4)
+                        out['last_off'] = i
+        return out
+
     def precheck(self, code: str, qty: int = 100, market: str = None) -> dict:
         """0124 预检 (只读)。返回 {'type','plaintext','text'}。"""
         market = market or TM.guess_market(code)
@@ -621,6 +677,14 @@ def _gbk_runs(pt: bytes, min_bytes: int = 4) -> list:
 
 
 _CJK_RUN_RE = re.compile(rb'(?:[\xa1-\xfe]{2}){2,}')
+
+
+def _f(v):
+    """行情数值字段 -> float (空/非法返回 None)。"""
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
 
 
 def clean_text(pt: bytes) -> str:

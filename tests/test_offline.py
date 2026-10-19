@@ -223,6 +223,32 @@ def test_recv_msg_accept_push():
         pass
 
 
+def test_parse_quote():
+    """quote(): k=v 给开高低量额, 最新价在二进制区 float32(off=194)。"""
+    import struct as _s
+    from ths_client.client import TradeClient as _TC
+    NUL = bytes([0])
+    head = bytearray(NUL * 260)
+    _s.pack_into('<f', head, 194, 8.48)                 # 最新价
+    kv = (b'zqdm=601398&zqmc=INDUSTRY&open=8.4700&zgj=8.6500&zdj=8.4400'
+          b'&cjje=1126497399.8720&cjl=290458330&T_JS=1509560775')
+    r = {'plaintext': bytes(head) + NUL + NUL + kv, 'via_push': True}
+    q = _TC.parse_quote(r, '601398')
+    assert q['code'] == '601398' and q['name'] == 'INDUSTRY'
+    assert (q['open'], q['high'], q['low']) == (8.47, 8.65, 8.44)
+    assert q['last'] == 8.48
+    assert q['amount'] == 1126497399.872 and q['volume'] == 290458330
+    assert q['time'] == '1509560775' and q['via_push'] is True
+
+    # 最新价越界(创业板/科创板情形)必须返回 None, 不能返回未经验证的值
+    head2 = bytearray(NUL * 260)
+    _s.pack_into('<f', head2, 194, 277.0)               # 高=275 低=268 -> 277 越界
+    kv2 = (b'zqdm=300750&zqmc=CYB&open=275.0000&zgj=275.0000&zdj=268.0000'
+           b'&cjje=1.0&cjl=1&T_JS=1')
+    q2 = _TC.parse_quote({'plaintext': bytes(head2) + kv2, 'via_push': True}, '300750')
+    assert q2['last'] is None, '越界时不应猜值'
+
+
 def test_recv_msg_resp_priority():
     """有 0x10 应答时优先返回应答, 不被推送抢走。"""
     import queue as _q

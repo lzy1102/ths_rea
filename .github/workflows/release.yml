@@ -2,7 +2,7 @@ name: Release
 
 # 触发方式二选一:
 #   1) 在 GitHub 上点 Release -> Publish (触发 release: published)
-#   2) 本地打标签推送: git tag v0.13.0 && git push origin v0.13.0
+#   2) 本地打标签推送: git tag v0.13.1 && git push origin v0.13.1
 on:
   release:
     types: [published]

@@ -73,7 +73,7 @@ cli.close()
 | 3.9 | ✅ CI 覆盖 | 依赖地板（pycryptodome 3.x 下限在此版本验证） |
 | ≤3.8 | ❌ 不支持 | 3.8 已 EOL；pycryptodome 4.x 也要求 ≥3.9 |
 
-CI 在 **ubuntu(3.9/3.13/3.14/3.15) + windows(3.12/3.15) + macos(3.12)** 上跑 12 项离线回归。
+CI 在 **ubuntu(3.9/3.13/3.14/3.15) + windows(3.12/3.15) + macos(3.12)** 上跑 15 项离线回归。
 依赖 `pycryptodome>=3.23,<5`；已实测 **3.19 与 4.0.1 的 DES-CBC 密文逐字节一致**，跨版本协议兼容。
 
 > Windows 控制台默认 cp1252 编不了中文 —— 测试脚本与 CI 已强制 UTF-8；
@@ -83,7 +83,23 @@ CI 在 **ubuntu(3.9/3.13/3.14/3.15) + windows(3.12/3.15) + macos(3.12)** 上跑 
 
 ## 安装
 
-### 方式 1：pip（推荐）
+### 方式 1：Git 直装（推荐，尚未发布到 PyPI）
+
+```bash
+pip install "ths-trade-client @ git+https://github.com/lzy1102/ths_rea.git"
+pip install "ths-trade-client[capture] @ git+https://github.com/lzy1102/ths_rea.git"
+pip install "ths-trade-client[legacy] @ git+https://github.com/lzy1102/ths_rea.git"
+```
+
+`requirements.txt` 中可写：
+
+```text
+ths-trade-client @ git+https://github.com/lzy1102/ths_rea.git
+```
+
+要求：Python ≥ 3.9。
+
+### 方式 2：PyPI（发布后可用）
 
 ```bash
 pip install ths-trade-client              # 仅核心（依赖: pycryptodome）
@@ -91,24 +107,26 @@ pip install "ths-trade-client[capture]"   # 核心 + 抓包工具（额外依赖
 pip install "ths-trade-client[legacy]"    # 核心 + 旧版网页登录模块（额外依赖: requests）
 ```
 
-要求：Python ≥ 3.8。
+> 包名已确定为 `ths-trade-client`，但当前尚未上传 PyPI；在此之前请使用方式 1、3 或 4。
 
-### 方式 2：wheel 分发
+### 方式 3：wheel 分发
 
 从 [Releases](https://github.com/lzy1102/ths_rea/releases) 下载 `ths_trade_client-*.whl`：
 
 ```bash
-pip install ths_trade_client-0.13.0-py3-none-any.whl
+pip install ths_trade_client-0.13.1-py3-none-any.whl
 ```
+
+> Release 资产可能落后于 `main`；需要最新功能时优先方式 1 或方式 4。
 
 或本地构建：
 
 ```bash
 python -m build            # 产物在 dist/
-pip install dist/ths_trade_client-0.13.0-py3-none-any.whl
+pip install dist/ths_trade_client-0.13.1-py3-none-any.whl
 ```
 
-### 方式 3：源码开发
+### 方式 4：源码开发
 
 ```bash
 git clone https://github.com/lzy1102/ths_rea.git
@@ -120,7 +138,7 @@ pip install -e .
 
 ```python
 import ths_client
-print(ths_client.__version__)          # 0.13.0
+print(ths_client.__version__)          # 0.13.1
 from ths_client import TradeClient, load_profile, parse_kv, machine
 ```
 
@@ -532,7 +550,7 @@ r = cli.request(cli.buy_market, '601398', 100)   # 自动重连后下单
 
 ## 离线测试
 
-不连柜台，用抓包脱敏样本做回归（12 项）：
+不连柜台，用抓包脱敏样本做回归（15 项）：
 
 ```bash
 python tests/test_offline.py       # 或 pytest tests/test_offline.py
@@ -553,13 +571,13 @@ python tests/test_offline.py       # 或 pytest tests/test_offline.py
 | windows | 3.12 / 3.15 |
 | macos | 3.12 |
 
-每个组合跑 12 项离线回归 + 导入自检；3.9 上额外跑依赖地板测试（`pycryptodome<4`）。
+每个组合跑 15 项离线回归 + 导入自检；3.9 上额外跑依赖地板测试（`pycryptodome<4`）。
 测试全绿后再构建 wheel/sdist，并校验 wheel 确实包含数据模板与两个命令入口点。
 
 **发版**（二选一）
 
 ```bash
-git tag -a v0.13.0 -m "..." && git push origin v0.13.0   # 打标签即发布
+git tag -a v0.13.1 -m "..." && git push origin v0.13.1   # 打标签即发布
 # 或在 GitHub 页面 Release -> Draft a release -> Publish
 ```
 

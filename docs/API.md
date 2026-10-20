@@ -1,6 +1,6 @@
 # API 参考 · ths-trade-client
 
-> 与 v0.13.0 实现同步。所有签名均从代码提取，可用 `inspect.signature` 复核。
+> 与 v0.13.1 实现同步。所有签名均从代码提取，可用 `inspect.signature` 复核。
 
 ---
 
@@ -242,7 +242,7 @@ P.gbk_runs(pt, min_chars=2) -> list  # GBK 文本串
 ths-capture-profile [--out local_profile.json] [--timeout 180]   # 抓配置(券商无关)
 ths-capture-orders [--out captures/x] [--timeout 600]           # 抓报文+自动扫IV解密
 python -m ths_client.capture_profile|capture_orders              # 等价模块调用
-python tests/test_offline.py                                    # 离线回归(12项)
+python tests/test_offline.py                                    # 离线回归(15项)
 python tools/keysniff.py --timeout 120                          # 嗅探各连接 DES IV
 ```
 

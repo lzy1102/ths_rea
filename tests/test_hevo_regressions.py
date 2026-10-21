@@ -198,3 +198,50 @@ def test_passport_request_includes_newwgflag():
     import inspect
     from hevo_client.auth import get_auth_passport
     assert '"newwgflag": "3"' in inspect.getsource(get_auth_passport)
+
+
+def test_client_uses_single_persistent_socket():
+    import socket as socket_mod
+    import hevo_client.client as client_mod
+    from hevo_client.client import HevoClient
+    sent = []
+
+    class FakeSock:
+        def __init__(self):
+            self.buf = b""
+
+        def sendall(self, data):
+            sent.append(data)
+
+        def close(self):
+            pass
+
+    created = []
+
+    def fake_connect(addr, timeout=None):
+        created.append(addr)
+        return FakeSock()
+
+    v2_body = struct.pack("<HiIHiB", 0, 7, 207, 1, 0, 0)
+
+    def fake_recv(sock, size):
+        if size == 13:
+            return bytes([0xfd]) * 4 + b"%08x" % len(v2_body) + bytes([9])
+        return v2_body
+
+    original_connect = socket_mod.create_connection
+    original_recv = client_mod._recv_exact
+    try:
+        socket_mod.create_connection = fake_connect
+        client_mod._recv_exact = fake_recv
+        client = HevoClient(host="h", port=1)
+        client.auth_bytes = b"AUTH"
+        client._auth_sent = False
+        client.query_intraday("600000")
+        client.query_intraday("600001")
+    finally:
+        socket_mod.create_connection = original_connect
+        client_mod._recv_exact = original_recv
+    assert len(created) == 1
+    assert sent[0] == b"AUTH"
+    assert len(sent) == 3

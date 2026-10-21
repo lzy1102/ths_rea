@@ -24,6 +24,7 @@ class HevoClient:
         self.auth = None
         self.auth_bytes = None
         self._auth_sent = False
+        self._sock = None
 
     def _http_get(self, url):
         try:
@@ -79,25 +80,44 @@ class HevoClient:
                 self._auth_sent = True
             response_bytes = self.transport(request_bytes)
         elif target_host is not None and target_port is not None:
-            if self.auth_bytes is not None and not self._auth_sent:
-                self._send_socket(target_host, target_port, self.auth_bytes, read_response=False)
-                self._auth_sent = True
-            response_bytes = self._send_socket(target_host, target_port, request_bytes, read_response=True)
+            response_bytes = self._send_socket(target_host, target_port, request_bytes)
         else:
             raise HevoError("no transport or host/port")
         bp = BinaryPack.from_bytes(response_bytes)
         response = DataResponseV2(full_pack=bp)
         return response.as_list_dictionary()
 
-    def _send_socket(self, host, port, data, read_response=True):
-        with socket.create_connection((host, port), timeout=30) as sock:
-            sock.sendall(data)
-            if not read_response:
-                return b""
-            head = _recv_exact(sock, 13)
-            body_length = int(head[4:12].decode("ascii"), 16)
-            body = _recv_exact(sock, body_length)
-            return head + body
+    def _send_socket(self, host, port, data):
+        sock = self._get_socket(host, port)
+        sock.sendall(data)
+        head = _recv_exact(sock, 13)
+        body_length = int(head[4:12].decode("ascii"), 16)
+        body = _recv_exact(sock, body_length)
+        return head + body
+
+    def _get_socket(self, host, port):
+        if self._sock is None:
+            self._sock = socket.create_connection((host, port), timeout=30)
+            if self.auth_bytes is not None and not self._auth_sent:
+                self._sock.sendall(self.auth_bytes)
+                self._auth_sent = True
+        return self._sock
+
+    def close(self):
+        if self._sock is not None:
+            try:
+                self._sock.close()
+            except Exception:
+                pass
+            self._sock = None
+            self._auth_sent = False
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+        return False
 
 def _recv_exact(sock, size):
     chunks = []

@@ -2,10 +2,14 @@ import socket
 import urllib.request
 from dataclasses import dataclass
 
+from .auth import get_auth_passport
 from .auth import login as auth_login
+from .auth import make_auth_bytes
+from .auth import get_mac_address
 from .binarypack import (BinaryPack, BinaryPackLayoutV2, DataResponseV2, parameter_dictionary_to_binary_pack, parameter_dictionary_to_string, request_trend_v2, string_to_parameter_dictionary)
 from .constants import DEFAULT_QSID
 from .errors import AuthError, HevoError
+from .salt import login_salt
 
 class HevoClient:
     def __init__(self, host=None, port=None, username=None, password=None, http_get=None, http_post=None, transport=None, qsid=DEFAULT_QSID):
@@ -36,12 +40,25 @@ class HevoClient:
         except Exception as exc:
             raise HevoError(str(exc))
 
-    def login(self, username=None, password=None):
+    def login(self, username=None, password=None, mode="MD5"):
         username = username if username is not None else self.username
         password = password if password is not None else self.password
         if username is None or password is None:
             raise AuthError("missing credentials")
-        self.auth = auth_login(username, password, self.http_get, self.http_post, self.qsid)
+        if mode in ("Salt", "SaltTest", "SaltDebug"):
+            session = login_salt(username, password, self.http_get, self.http_post, mode)
+            passport = get_auth_passport(self.http_post, session, self.qsid)
+            if passport is None or passport.is_bad:
+                raise AuthError("bad auth passport")
+            passport64 = passport.make_passport64_value()
+            self.auth = {
+                "session": session,
+                "passport": passport,
+                "passport64": passport64,
+                "auth_bytes": make_auth_bytes(passport64, session.user_id, self.qsid, get_mac_address()),
+            }
+        else:
+            self.auth = auth_login(username, password, self.http_get, self.http_post, self.qsid)
         self.auth_bytes = self.auth["auth_bytes"]
         self._auth_sent = False
         return self.auth

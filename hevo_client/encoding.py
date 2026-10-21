@@ -176,14 +176,20 @@ def combine_bytes(*chunks):
 def handle_xor(message, key):
     if message == "" or key == "":
         return ""
-    result = []
+    if len(key) < len(message):
+        raise ValueError("xor key too short")
+    out = bytearray()
     for index, char in enumerate(message):
-        result.append(chr(ord(char) ^ ord(key[index % len(key)])))
-    return "".join(result)
+        out.append((ord(char) ^ ord(key[index])) & 0xFF)
+    return "".join(chr(byte) if byte < 128 else "?" for byte in out)
+
+
+def ascii_decode(data):
+    return "".join(chr(byte) if byte < 128 else "?" for byte in data)
 
 
 def get_cord():
-    return "".join(str(random.randrange(i * 10, (i + 1) * 10)) for i in range(18))
+    return "".join(str(random.randrange(i * 10, (i + 1) * 10)) for i in range(1, 10))
 
 EncodeUrl = encode_url
 HexinBase64Encode = hexin_base64_encode

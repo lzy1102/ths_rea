@@ -12,21 +12,21 @@ from .encoding import gbk_decode, gbk_encode
 
 def md5_hex(text):
     if isinstance(text, str):
-        text = gbk_encode(text)
-    return hashlib.md5(text).hexdigest()
+        text = text.encode("ascii", "replace")
+    return hashlib.md5(text).hexdigest().upper()
 
 
 def sha256_hex(text):
     if isinstance(text, str):
-        text = gbk_encode(text)
+        text = text.encode("utf-8")
     return hashlib.sha256(text).hexdigest()
 
 
 def hmac_sha256_hex(message, secret):
     if isinstance(message, str):
-        message = gbk_encode(message)
+        message = message.encode("utf-8")
     if isinstance(secret, str):
-        secret = gbk_encode(secret)
+        secret = secret.encode("utf-8")
     return hmac.new(secret, message, hashlib.sha256).hexdigest()
 
 
@@ -166,14 +166,13 @@ def parse_rsa_params(params):
 
 def aes_encrypt_cbc(plaintext, key, iv=AES_IV):
     if isinstance(plaintext, str):
-        plaintext = gbk_encode(plaintext)
+        plaintext = plaintext.encode("utf-8")
     if isinstance(key, str):
-        key = gbk_encode(key)
+        key = (key + "0" * 32)[:32].encode("utf-8")
     if isinstance(iv, str):
-        iv = gbk_encode(iv)
-    key = key.ljust(32, b"0")[:32]
-    iv = iv.encode(GBK) if isinstance(iv, str) else iv
-    iv = iv.ljust(16, b"0")[:16]
+        iv = iv.encode("utf-8")
+    key = key[:32]
+    iv = iv[:16]
     cipher = AES.new(key, AES.MODE_CBC, iv)
     pad = 16 - (len(plaintext) % 16)
     padded = plaintext + bytes([pad] * pad)
@@ -184,27 +183,27 @@ def aes_decrypt_cbc(ciphertext, key, iv=AES_IV):
     if isinstance(ciphertext, str):
         ciphertext = base64.b64decode(ciphertext)
     if isinstance(key, str):
-        key = gbk_encode(key)
+        key = (key + "0" * 32)[:32].encode("utf-8")
     if isinstance(iv, str):
-        iv = gbk_encode(iv)
-    key = key.ljust(32, b"0")[:32]
-    iv = iv.ljust(16, b"0")[:16]
+        iv = iv.encode("utf-8")
+    key = key[:32]
+    iv = iv[:16]
     cipher = AES.new(key, AES.MODE_CBC, iv)
     padded = cipher.decrypt(ciphertext)
     pad = padded[-1]
-    return gbk_decode(padded[:-pad])
+    return padded[:-pad].decode("utf-8")
 
 
 def decrypt_symmetric_key():
     import base64 as _base64
     from .constants import ENCRYPTED_KEY
     encrypted = _base64.b64decode(ENCRYPTED_KEY)
-    key = gbk_encode(SYMMETRIC_KEY).ljust(32, b"0")[:32]
-    iv = gbk_encode(AES_IV).ljust(16, b"0")[:16]
+    key = (SYMMETRIC_KEY + "0" * 32)[:32].encode("utf-8")
+    iv = AES_IV.encode("utf-8")[:16]
     cipher = AES.new(key, AES.MODE_CBC, iv)
     decrypted = cipher.decrypt(encrypted)
     pad = decrypted[-1]
-    return gbk_decode(base64.b64decode(decrypted[:-pad]))
+    return base64.b64decode(decrypted[:-pad]).decode("utf-8")
 
 
 Md5Hex = md5_hex

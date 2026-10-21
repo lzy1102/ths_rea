@@ -80,3 +80,168 @@ def test_client_query():
 
 def test_snappy_roundtrip_not_required():
     assert snappy_decompress is not None
+
+
+def test_salt_sign_key_from_encrypted_key():
+    from hevo_client.salt import get_salt_sign_key
+    key = get_salt_sign_key("Salt")
+    assert key == "TUALD74SBVO6KZQ0"
+    assert get_salt_sign_key("SaltTest", app_id="APP") == "APP"
+    assert get_salt_sign_key("SaltDebug", encrypted_key="ENC") == "ENC"
+
+
+def test_salt_sign_headers_shape():
+    from hevo_client.salt import get_salt_sign_headers
+    headers = get_salt_sign_headers("account=x&encoding=gbk", "KEY", app_id="APP", crnd="CRND")
+    assert headers["X-Auth-AppId"] == "APP"
+    assert headers["X-Auth-SignV"] == "3"
+    assert headers["X-Auth-Crnd"] == "CRND"
+    assert headers["X-Auth-Ext"] == "CRND"
+    assert headers["X-Auth-Sign"] == headers["X-Auth-Sign"].upper()
+    assert len(headers["X-Auth-Sign"]) == 64
+    assert headers["X-Auth-Time"].isdigit()
+
+
+def _rsa_keypair(bits=1024):
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    return rsa.generate_private_key(public_exponent=65537, key_size=bits)
+
+
+def _public_key_from(private):
+    numbers = private.public_key().public_numbers()
+    modulus = format(numbers.n, "x")
+    if len(modulus) % 2:
+        modulus = "0" + modulus
+    exponent = format(numbers.e, "x")
+    if len(exponent) % 2:
+        exponent = "0" + exponent
+    from hevo_client.auth import AuthPublicKeyV1
+    key = AuthPublicKeyV1()
+    key.modulus = modulus
+    key.public_exponent = exponent
+    return key
+
+
+def _url_decode(text):
+    out = []
+    index = 0
+    while index < len(text):
+        char = text[index]
+        if char == "%" and index + 2 < len(text):
+            out.append(chr(int(text[index + 1:index + 3], 16)))
+            index += 3
+            continue
+        if char == "+":
+            out.append("+")
+            index += 1
+            continue
+        out.append(char)
+        index += 1
+    return "".join(out)
+
+
+def _decode_salt_payload(text, private):
+    import base64 as _b64
+    from cryptography.hazmat.primitives.asymmetric import padding
+    raw = _b64.b64decode(_url_decode(text))
+    plain = private.decrypt(raw, padding.PKCS1v15())
+    return plain.decode("gbk")
+
+
+def test_salt_password_chain_decrypts_to_expected():
+    from hevo_client.crypto import hmac_sha256_hex, sha256_hex
+    from hevo_client.encoding import handle_xor
+    from hevo_client.salt import AuthSaltResponse, SaltData, encrypt_password_width_salt
+    import base64 as _b64
+    private = _rsa_keypair()
+    public_key = _public_key_from(private)
+    crnd = "123456789012345678"
+    dsk = "A" * 32
+    dsv = "B" * 32
+    xor_key = sha256_hex(crnd + dsk)
+    plain = "x=secretvalue"
+    ssv = _b64.b64encode(handle_xor(plain, xor_key).encode("ascii")).decode("ascii")
+    rsp = AuthSaltResponse(code="0", result=SaltData(dsk=dsk, dsv=dsv, ssv=ssv))
+    payload = encrypt_password_width_salt("pwd", crnd, rsp, public_key)
+    text = _decode_salt_payload(payload, private)
+    expected_secret = plain.split("=")[1]
+    expected = _b64.b64encode(handle_xor(hmac_sha256_hex("pwd", expected_secret), sha256_hex(dsv)).encode("ascii")).decode("ascii")
+    assert text == expected
+    other = encrypt_password_width_salt("pwd2", crnd, rsp, public_key)
+    assert _decode_salt_payload(other, private) != expected
+
+
+def test_salt_login_flow_offline():
+    from hevo_client.crypto import sha256_hex
+    from hevo_client.encoding import handle_xor
+    from hevo_client.salt import login_salt
+    import base64 as _b64
+    mod = "00" + "C1" * 128
+    pub = ("<root><ret code=\"0\" msg=\"ok\"/>"
+           "<item rsa_version=\"1\" pubkey=\"\" modulus=\"%s\" publicExponent=\"010001\"/></root>") % mod
+    dsk = "A" * 32
+    dsv = "B" * 32
+    ok_xml = "<root><ret code=\"0\" msg=\"ok\"/><item userid=\"U1\" sessionid=\"S1\" rsa_version=\"1\"/></root>"
+    seen = []
+
+    def http_get(url):
+        return pub.encode("gbk")
+
+    def http_post(url, data, headers):
+        assert "X-Auth-Sign" in headers
+        assert headers["X-Auth-SignV"] == "3"
+        seen.append(url)
+        if url.endswith("/verify3/gs"):
+            crnd = headers["X-Auth-Crnd"]
+            ssv = _b64.b64encode(handle_xor("x=secretvalue", sha256_hex(crnd + dsk)).encode("ascii")).decode("ascii")
+            body = ("{\"code\":\"0\",\"msg\":\"ok\",\"result\":{\"dsk\":\"%s\",\"dsv\":\"%s\",\"ssv\":\"%s\"}}") % (
+                dsk, dsv, ssv)
+            return body.encode("gbk")
+        if url.endswith("/verify3/pwd_login"):
+            return ok_xml.encode("gbk")
+        raise AssertionError(url)
+
+    session = login_salt("user", "pass", http_get, http_post)
+    assert session.user_id == "U1"
+    assert session.session_id == "S1"
+    assert session.is_bad is False
+    assert seen == ["http://auth.10jqka.com.cn/verify3/gs",
+                    "http://auth.10jqka.com.cn/verify3/pwd_login"]
+
+
+def test_salt_second_login_on_minus_10002():
+    from hevo_client.crypto import sha256_hex
+    from hevo_client.encoding import handle_xor
+    from hevo_client.salt import login_salt
+    import base64 as _b64
+    mod = "00" + "C1" * 128
+    pub = ("<root><ret code=\"0\" msg=\"ok\"/>"
+           "<item rsa_version=\"1\" pubkey=\"\" modulus=\"%s\" publicExponent=\"010001\"/></root>") % mod
+    dsk = "A" * 32
+    dsv = "B" * 32
+    retry_xml = ("<root><ret code=\"-10002\" msg=\"retry\"/>"
+                 "<item dsk=\"%s\" dsv=\"%s\"/></root>") % ("C" * 32, "D" * 32)
+    ok_xml = "<root><ret code=\"0\" msg=\"ok\"/><item userid=\"U2\" sessionid=\"S2\" rsa_version=\"1\"/></root>"
+    seen = []
+
+    def http_get(url):
+        return pub.encode("gbk")
+
+    def http_post(url, data, headers):
+        seen.append(url)
+        if url.endswith("/verify3/gs"):
+            crnd = headers["X-Auth-Crnd"]
+            ssv = _b64.b64encode(handle_xor("x=secretvalue", sha256_hex(crnd + dsk)).encode("ascii")).decode("ascii")
+            body = ("{\"code\":\"0\",\"msg\":\"ok\",\"result\":{\"dsk\":\"%s\",\"dsv\":\"%s\",\"ssv\":\"%s\"}}") % (
+                dsk, dsv, ssv)
+            return body.encode("gbk")
+        if url.endswith("/verify3/pwd_login"):
+            return retry_xml.encode("gbk")
+        if url.endswith("/verify3/pwd_login_again"):
+            return ok_xml.encode("gbk")
+        raise AssertionError(url)
+
+    session = login_salt("user", "pass", http_get, http_post)
+    assert session.user_id == "U2"
+    assert len(seen) == 3
+    assert seen[-1].endswith("/verify3/pwd_login_again")

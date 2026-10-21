@@ -4,6 +4,7 @@ from .client import HevoClient
 from .constants import APP_ID, AUTH_CENTER_URL, DEFAULT_QSID, PRODUCT_NAME
 from .errors import AuthError, HevoError, HxError, ProtocolError
 from .hxfile import HxFile
+from .salt import AuthSaltResponse, SaltData, login_salt
 
 __all__ = [
     "HevoClient",
@@ -17,7 +18,10 @@ __all__ = [
     "AuthPublicKeyV1",
     "AuthSessionV1",
     "AuthPassportV1",
+    "AuthSaltResponse",
+    "SaltData",
     "login",
+    "login_salt",
     "make_auth_bytes",
     "request_trend_v2",
     "APP_ID",

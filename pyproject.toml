@@ -40,7 +40,7 @@ ths-capture-orders = "ths_client.capture_orders:main"
 Homepage = "https://github.com/lzy1102/ths_rea"
 
 [tool.setuptools.packages.find]
-include = ["ths_client*"]
+include = ["ths_client*", "hevo_client*"]
 
 [tool.setuptools.package-data]
 ths_client = [

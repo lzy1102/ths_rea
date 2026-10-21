@@ -156,3 +156,45 @@ def test_v2_zlib_payload_starts_at_data_start_plus_4():
     response = DataResponseV2(pack_bytes=head + info + body)
     assert response.decompressed_bytes == inner
     assert response.as_string() == "hello world"
+
+
+def test_salt_sign_key_matches_original():
+    from hevo_client.constants import AES_IV, ENCRYPTED_KEY, SYMMETRIC_KEY
+    from hevo_client.salt import get_salt_sign_key
+    assert get_salt_sign_key("Salt") == "TUALD74SBVO6KZQ0"
+    assert get_salt_sign_key("SaltTest", app_id="APP") == "APP"
+    assert get_salt_sign_key("SaltDebug", encrypted_key="ENC") == "ENC"
+
+
+def test_imei_fallback_is_plain_string_not_md5():
+    import hevo_client.auth as auth_mod
+    original = auth_mod.get_mac_address
+
+    def boom():
+        raise RuntimeError("no mac")
+
+    try:
+        auth_mod.get_mac_address = lambda: "AA-BB-CC-DD-EE-FF"
+        assert auth_mod.get_imei_for_auth() == "6576F7FBC367D7A944D474074D276A2D"
+        # C# only reaches the fallback when the MD5 call itself throws
+        original_md5 = auth_mod.md5_hex
+        try:
+            def boom_md5(text):
+                raise RuntimeError("md5 failed")
+            auth_mod.md5_hex = boom_md5
+            assert auth_mod.get_imei_for_auth() == "AABBCCDDEEFFAABBCCDDEEFFGGHHIIGG"
+        finally:
+            auth_mod.md5_hex = original_md5
+    finally:
+        auth_mod.get_mac_address = original
+
+
+def test_empty_password_becomes_empty_string():
+    from hevo_client.auth import convert_input_password_to_md5
+    assert convert_input_password_to_md5("") == ""
+
+
+def test_passport_request_includes_newwgflag():
+    import inspect
+    from hevo_client.auth import get_auth_passport
+    assert '"newwgflag": "3"' in inspect.getsource(get_auth_passport)

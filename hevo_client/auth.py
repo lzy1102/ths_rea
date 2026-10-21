@@ -243,9 +243,11 @@ def get_imei_for_auth():
     try:
         return md5_hex(mac + "000000000000000000000000000000")
     except Exception:
-        return md5_hex("".join(mac.split("-")) + "AABBCCDDEEFFGGHHIIGG")
+        return "".join(mac.split("-")) + "AABBCCDDEEFFGGHHIIGG"
 
 def convert_input_password_to_md5(password, stored_password=None, is_pwd_need_md5_process=True):
+    if not password:
+        return ""
     if not is_pwd_need_md5_process:
         return password
     if stored_password is not None and stored_password == password:
@@ -303,6 +305,7 @@ def get_auth_passport(http_post, session, qsid=DEFAULT_QSID):
         "sdsn": "",
         "securities": PRODUCT_NAME,
         "nohqlist": "0",
+        "newwgflag": "3",
     }
     query = make_query_string(kvs, sorted_keys=True)
     response = http_post(AUTH_CENTER_URL, gbk_encode(query), {"Content-Type": "application/x-www-form-urlencoded"})

@@ -25,12 +25,12 @@ def encode_url(src):
         if char == " ":
             result += "+"
             continue
-        if char == "\x00":
-            continue
+        if char != "\x00":
+            result += "%"
         value = ord(char) & 0xFF
         hi = value // 16
         lo = value % 16
-        result += "%" + _hex_digit(hi) + _hex_digit(lo)
+        result += _hex_digit(hi) + _hex_digit(lo)
     return result
 
 

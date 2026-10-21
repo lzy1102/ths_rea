@@ -329,7 +329,10 @@ def make_auth_bytes(passport64, user_id, qsid=DEFAULT_QSID, mac_address=None):
         "Mac64": base64.b64encode(gbk_encode(mac_address)).decode("ascii"),
     }
     ini_str = dictionary_to_ini_string(ini, "\n")
-    return b"A" + struct.pack("<H", len("zh_CN.GBK")) + gbk_encode("zh_CN.GBK") + struct.pack("<H", len(ini_str)) + gbk_encode(ini_str)
+    if ini_str.endswith("\n"):
+        ini_str = ini_str[:-1]
+    body = gbk_encode(ini_str)
+    return b"A" + struct.pack("<H", len("zh_CN.GBK")) + gbk_encode("zh_CN.GBK") + struct.pack("<H", len(body)) + body
 
 def login(username, password, http_get, http_post, qsid=DEFAULT_QSID):
     public_key_url = AUTH_CENTER_URL + "?reqtype=do_rsa&type=get_pubkey"

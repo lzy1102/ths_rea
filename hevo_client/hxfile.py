@@ -145,7 +145,10 @@ class HxFile:
     @property
     def head(self):
         if self._head is None:
-            raw = self.original_bytes[self.head_start:self.head_start + struct.calcsize(HX_HEAD_FORMAT)]
+            buf = self.source_bytes
+            if self.is_compressed and self._decompressed is not None:
+                buf = self._decompressed
+            raw = buf[self.head_start:self.head_start + struct.calcsize(HX_HEAD_FORMAT)]
             unpacked = struct.unpack(HX_HEAD_FORMAT, raw)
             self._head = HxHead(
                 version_string=unpacked[0],
@@ -342,10 +345,18 @@ class HxFile:
     @staticmethod
     def unzip3sharp(source, index):
         source = bytes(source)
+        try:
+            return HxFile._unzip3sharp(source, index)
+        except IndexError:
+            return None
+
+    @staticmethod
+    def _unzip3sharp(source, index):
+        source = bytes(source)
         ptr2 = index
         num = len(source) - index
-        num2 = int.from_bytes(source[ptr2:ptr2 + 4], "big")
-        array = bytearray(num2 + 1)
+        num2 = int.from_bytes(source[ptr2:ptr2 + 4], 'big')
+        out = bytearray()
         ptr4 = ptr2 + 4
         ptr5 = 0
         ptr6 = num2
@@ -355,184 +366,197 @@ class HxFile:
         controlb = 8
         b = source[cp]
         cp += 1
-        array[ptr5] = b
+        out.append(b)
         ptr5 += 1
+        state = {'getbit': 0}
 
-        def dec_get_control2():
-            nonlocal control, controlb, cp, getbit
-            getbit = control & 0x80
+        def dec():
+            nonlocal control, controlb, cp
+            state['getbit'] = control & 0x80
             control = (control << 1) & 0xFF
             controlb -= 1
             if controlb == 0:
+                if cp >= len(source):
+                    raise IndexError('oob')
                 control = source[cp]
                 cp += 1
                 controlb = 8
 
-        getbit = 0
+        def W():
+            nonlocal ptr5
+            if ptr5 > ptr6:
+                return False
+            out.append(b)
+            ptr5 += 1
+            return True
+
         while ptr5 < ptr6:
-            dec_get_control2()
-            if getbit == 0:
+            dec()
+            if state['getbit'] == 0:
                 if ptr5 > ptr6:
                     return None
-                array[ptr5] = source[cp]
+                out.append(source[cp])
                 cp += 1
                 ptr5 += 1
                 if ptr5 > ptr6:
                     return None
                 b = source[cp]
                 cp += 1
-                array[ptr5] = b
+                out.append(b)
                 ptr5 += 1
                 continue
-            dec_get_control2()
-            if getbit == 0:
+            dec()
+            if state['getbit'] == 0:
                 if ptr5 > ptr6:
                     return None
                 b = source[cp]
                 cp += 1
+                out.append(b)
+                ptr5 += 1
             if ptr5 > ptr6:
                 return None
-            array[ptr5] = b
+            out.append(b)
             ptr5 += 1
-            dec_get_control2()
-            if getbit == 0:
+            dec()
+            if state['getbit'] == 0:
                 continue
             if ptr5 > ptr6:
                 return None
-            array[ptr5] = b
+            out.append(b)
             ptr5 += 1
-            dec_get_control2()
-            if getbit != 0:
+            dec()
+            if state['getbit'] != 0:
                 if ptr5 > ptr6:
                     return None
-                array[ptr5] = b
+                out.append(b)
                 ptr5 += 1
                 if ptr5 > ptr6:
                     return None
-                array[ptr5] = b
+                out.append(b)
                 ptr5 += 1
-                dec_get_control2()
-                if getbit == 0:
+                dec()
+                if state['getbit'] == 0:
                     continue
                 if ptr5 > ptr6:
                     return None
-                array[ptr5] = b
+                out.append(b)
                 ptr5 += 1
-                dec_get_control2()
-                if getbit != 0:
+                dec()
+                if state['getbit'] != 0:
                     if ptr5 > ptr6:
                         return None
-                    array[ptr5] = b
+                    out.append(b)
                     ptr5 += 1
                     if ptr5 > ptr6:
                         return None
-                    array[ptr5] = b
+                    out.append(b)
                     ptr5 += 1
                     if ptr5 > ptr6:
                         return None
-                    array[ptr5] = b
+                    out.append(b)
                     ptr5 += 1
                     if ptr5 > ptr6:
                         return None
-                    array[ptr5] = b
+                    out.append(b)
                     ptr5 += 1
-                    dec_get_control2()
-                    if getbit != 0:
-                        dec_get_control2()
-                        if getbit != 0:
+                    dec()
+                    if state['getbit'] != 0:
+                        dec()
+                        if state['getbit'] != 0:
                             if ptr5 > ptr6:
                                 return None
-                            array[ptr5] = b
+                            out.append(b)
                             ptr5 += 1
                             if ptr5 > ptr6:
                                 return None
-                            array[ptr5] = b
+                            out.append(b)
                             ptr5 += 1
                             if ptr5 > ptr6:
                                 return None
-                            array[ptr5] = b
+                            out.append(b)
                             ptr5 += 1
                             num3 = 0
                             while True:
                                 b2 = source[cp]
                                 cp += 1
-                                signed = b2 if b2 < 128 else b2 - 256
-                                if signed < 0:
-                                    num5 = 256 + signed
-                                    num3 = num5
-                                else:
-                                    num5 = num3 = signed
+                                num5 = num3 = b2
                                 if num3 > 127:
                                     num3 -= 128
                                     num3 <<= 8
                                     b2 = source[cp]
                                     cp += 1
-                                    signed2 = b2 if b2 < 128 else b2 - 256
-                                    if signed2 < 0:
-                                        num3 += 256
-                                    num3 += signed2
+                                    num3 += b2
                                     num5 = num3
                                 while num5 != 0:
                                     if ptr5 > ptr6:
                                         return None
-                                    array[ptr5] = b
+                                    out.append(b)
                                     ptr5 += 1
                                     num5 -= 1
                                 if num3 != 32767:
                                     break
+                        else:
+                            if ptr5 > ptr6:
+                                return None
+                            out.append(b)
+                            ptr5 += 1
+                            if ptr5 > ptr6:
+                                return None
+                            out.append(b)
+                            ptr5 += 1
+                        continue
+                    dec()
+                    if state['getbit'] != 0:
+                        if ptr5 > ptr6:
+                            return None
+                        out.append(b)
+                        ptr5 += 1
+                    continue
+                dec()
+                if state['getbit'] != 0:
+                    dec()
+                    if state['getbit'] != 0:
+                        if ptr5 > ptr6:
+                            return None
+                        out.append(b)
+                        ptr5 += 1
+                        if ptr5 > ptr6:
+                            return None
+                        out.append(b)
+                        ptr5 += 1
+                        if ptr5 > ptr6:
+                            return None
+                        out.append(b)
+                        ptr5 += 1
                     else:
                         if ptr5 > ptr6:
                             return None
-                        array[ptr5] = b
+                        out.append(b)
                         ptr5 += 1
                         if ptr5 > ptr6:
                             return None
-                        array[ptr5] = b
+                        out.append(b)
                         ptr5 += 1
                     continue
-                dec_get_control2()
-                if getbit != 0:
+                dec()
+                if state['getbit'] != 0:
                     if ptr5 > ptr6:
                         return None
-                    array[ptr5] = b
+                    out.append(b)
                     ptr5 += 1
                 continue
-            dec_get_control2()
-            if getbit != 0:
-                dec_get_control2()
-                if getbit != 0:
-                    if ptr5 > ptr6:
-                        return None
-                    array[ptr5] = b
-                    ptr5 += 1
-                    if ptr5 > ptr6:
-                        return None
-                    array[ptr5] = b
-                    ptr5 += 1
-                    if ptr5 > ptr6:
-                        return None
-                    array[ptr5] = b
-                    ptr5 += 1
-                else:
-                    if ptr5 > ptr6:
-                        return None
-                    array[ptr5] = b
-                    ptr5 += 1
-                    if ptr5 > ptr6:
-                        return None
-                    array[ptr5] = b
-                    ptr5 += 1
-                continue
-            dec_get_control2()
-            if getbit != 0:
+            dec()
+            if state['getbit'] != 0:
                 if ptr5 > ptr6:
                     return None
-                array[ptr5] = b
+                out.append(b)
                 ptr5 += 1
             continue
-        if cp != ptr4 + num - 4:
+        if cp != len(source):
             return None
-        return bytes(array)
+        if len(out) < num2 + 1:
+            out.extend(b"\x00" * (num2 + 1 - len(out)))
+        return bytes(out)
 
 
 def snappy_decompress(data):

@@ -156,8 +156,8 @@ class DataResponseV2:
             self._decompressed = None
             return None
         if layout.compression_method == 0x200:
-            num = int.from_bytes(raw[layout.data_start:layout.data_start + 4], "little")
-            self._decompressed = zlib.decompress(raw[layout.data_start + 8:layout.data_start + 8 + num - 4])
+            payload = raw[layout.data_start + 4:layout.data_start + layout.data_length]
+            self._decompressed = zlib.decompress(payload)
             return self._decompressed
         if layout.compression_method == 0x100:
             self._decompressed = snappy_decompress(raw[layout.data_start + 4:layout.data_start + layout.data_length])
@@ -169,9 +169,17 @@ class DataResponseV2:
             return "空包，AsString失败"
         layout = self.pack_layout
         raw = layout.full_pack.full_bytes
-        if self.decompressed_bytes is not None:
-            return gbk_decode(self.decompressed_bytes)
-        return gbk_decode(raw[layout.data_start:layout.data_start + layout.data_length])
+        if layout.compression_method == 0:
+            if layout.data_length == 0:
+                return ""
+            return gbk_decode(raw[layout.data_start + 4:layout.data_start + layout.data_length])
+        decompressed = self.decompressed_bytes
+        if decompressed is None:
+            return ""
+        num = int.from_bytes(decompressed[:4], "little")
+        if num > 0:
+            return gbk_decode(decompressed[4:4 + num])
+        return ""
 
     def get_extra_dic(self):
         from .hxfile import HxFile
@@ -180,14 +188,17 @@ class DataResponseV2:
             return None
         if self._extra is not None:
             return self._extra
-        result = {}
         hxlong_conversion = "AsPush" if self.is_push_response else "AsResponse"
-        for offset in layout.data_segment_offsets:
-            hx = HxFile(layout.full_pack.full_bytes, offset, hxlong_conversion)
-            if hx.version != "UnKnow" and not hx.is_bad:
-                result.update(hx.extra_fields())
-        self._extra = result
-        return result
+        files = []
+        try:
+            for offset in layout.data_segment_offsets:
+                files.append(HxFile(layout.full_pack.full_bytes, offset, hxlong_conversion))
+        except Exception:
+            return None
+        if not files:
+            return None
+        self._extra = files[0].extra_fields()
+        return self._extra
 
     def as_list_dictionary(self):
         from .hxfile import HxFile

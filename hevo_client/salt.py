@@ -85,11 +85,12 @@ def get_salt_sign_key(request_type="Salt", app_id=APP_ID, encrypted_key=ENCRYPTE
     return base64.b64decode(decrypted).decode("utf-8")
 
 
-def get_salt_sign_headers(body_str, sign_key, app_id=APP_ID, crnd=None):
+def get_salt_sign_headers(body_str, sign_key, app_id=APP_ID, crnd=None, timestamp=None):
     if crnd is None:
         crnd = get_cord()
-    from datetime import datetime
-    timestamp = int((datetime.now() - datetime(1970, 1, 1, 8, 0, 0)).total_seconds())
+    if timestamp is None:
+        from datetime import datetime
+        timestamp = int((datetime.now() - datetime(1970, 1, 1, 8, 0, 0)).total_seconds())
     arg = sha256_hex(body_str).upper()
     message = "X-Auth-SignV3X-Auth-Time" + str(timestamp) + arg
     sign = hmac_sha256_hex(message, sign_key).upper()

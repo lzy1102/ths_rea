@@ -281,3 +281,16 @@ def test_binary_pack_length_field_is_lowercase_hex8():
     assert pack.raw[4:12] == b"00000004"
     assert pack.raw[12] == 9
     assert pack.body_length == 4
+
+
+def test_salt_sign_headers_are_deterministic_with_fixed_timestamp():
+    from hevo_client.salt import get_salt_sign_headers
+    headers = get_salt_sign_headers("account=abc&encoding=gbk", "TUALD74SBVO6KZQ0",
+                                    app_id="2022021120720687", crnd="123456789012345678",
+                                    timestamp="1700000000")
+    assert headers["X-Auth-AppId"] == "2022021120720687"
+    assert headers["X-Auth-SignV"] == "3"
+    assert headers["X-Auth-Time"] == "1700000000"
+    assert headers["X-Auth-Crnd"] == headers["X-Auth-Ext"] == "123456789012345678"
+    assert len(headers["X-Auth-Sign"]) == 64
+    assert headers["X-Auth-Sign"] == headers["X-Auth-Sign"].upper()

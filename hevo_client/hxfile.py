@@ -42,11 +42,12 @@ class HexinMinuteTime:
     @staticmethod
     def get_offset(value, bit_index, bit_count):
         num = (value & 0xFFFFFFFF) >> bit_index
-        num <<= 32 - bit_count
+        num = (num << (32 - bit_count)) & 0xFFFFFFFF
         return (num >> (32 - bit_count)) & 0xFFFFFFFF
 
     @staticmethod
     def try_to_unix_timestamp_int64(value):
+        from datetime import datetime, timezone
         if value > 230000000:
             return value
         if value <= 0:
@@ -57,25 +58,17 @@ class HexinMinuteTime:
             year = value // 10000
             month = (value // 100) % 100
             day = value % 100
-            try:
-                from datetime import datetime, timezone
-                dt = datetime(year, month, day, tzinfo=timezone.utc).astimezone()
-                epoch = datetime(1970, 1, 1, tzinfo=timezone.utc).astimezone()
-                return int((dt.replace(tzinfo=None) - epoch.replace(tzinfo=None)).total_seconds())
-            except ValueError:
-                return value
+            dt = datetime(year, month, day, tzinfo=timezone.utc).astimezone()
+            epoch = datetime(1970, 1, 1, tzinfo=timezone.utc).astimezone()
+            return int((dt.replace(tzinfo=None) - epoch.replace(tzinfo=None)).total_seconds())
         offset1 = HexinMinuteTime.get_offset(value, 0, 6)
         offset2 = HexinMinuteTime.get_offset(value, 6, 5)
         offset3 = HexinMinuteTime.get_offset(value, 11, 5)
         offset4 = HexinMinuteTime.get_offset(value, 16, 4)
         year = HexinMinuteTime.get_offset(value, 20, 8) + 1900
-        try:
-            from datetime import datetime, timezone
-            dt = datetime(year, offset4, offset3, offset2, offset1, 0, tzinfo=timezone.utc)
-            epoch = datetime(1970, 1, 1, 8, 0, 0, tzinfo=timezone.utc)
-            return int((dt - epoch).total_seconds())
-        except ValueError:
-            return value
+        dt = datetime(year, offset4, offset3, offset2, offset1, 0)
+        epoch = datetime(1970, 1, 1, 8, 0, 0, tzinfo=timezone.utc)
+        return int((dt.replace(tzinfo=timezone.utc) - epoch).total_seconds())
 
     @staticmethod
     def try_to_unix_timestamp_int32(value):

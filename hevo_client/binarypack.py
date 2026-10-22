@@ -262,9 +262,9 @@ def parameter_dictionary_to_string(mapping):
     if "instance" not in mapping:
         mapping["instance"] = str(INSTANCE_COUNTER["value"])
         INSTANCE_COUNTER["value"] += 1
-    parts = []
-    if "id" in mapping:
-        parts.append("id=" + str(mapping["id"]))
+    if "id" not in mapping:
+        raise ProtocolError("missing id")
+    parts = ["id=" + str(mapping["id"])]
     for key, value in mapping.items():
         if key == "id":
             continue

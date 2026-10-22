@@ -245,3 +245,39 @@ def test_client_uses_single_persistent_socket():
     assert len(created) == 1
     assert sent[0] == b"AUTH"
     assert len(sent) == 3
+
+
+def test_minute_time_get_offset_truncates_like_uint32():
+    from hevo_client.hxfile import HexinMinuteTime
+    assert HexinMinuteTime.get_offset(22000000, 0, 6) == 0
+    assert HexinMinuteTime.get_offset(22000000, 6, 5) == 6
+    assert HexinMinuteTime.get_offset(22000000, 20, 8) == 20
+
+
+def test_minute_time_raises_on_invalid_date_like_dotnet():
+    from hevo_client.hxfile import HexinMinuteTime
+    with pytest.raises(ValueError):
+        HexinMinuteTime.try_to_unix_timestamp_int64(22000000)
+
+
+def test_parameter_dictionary_to_string_requires_id():
+    from hevo_client.binarypack import parameter_dictionary_to_string
+    from hevo_client.errors import ProtocolError
+    with pytest.raises(ProtocolError):
+        parameter_dictionary_to_string({"a": "1"})
+
+
+def test_parameter_dictionary_to_string_puts_id_first():
+    from hevo_client.binarypack import parameter_dictionary_to_string
+    text = parameter_dictionary_to_string({"id": "207", "market": "USHA", "code": "600000"})
+    assert text.startswith("id=207&")
+    assert "market=USHA" in text
+
+
+def test_binary_pack_length_field_is_lowercase_hex8():
+    from hevo_client.binarypack import BinaryPack
+    pack = BinaryPack.from_body(b"ABCD")
+    assert pack.raw[:4] == bytes([253, 253, 253, 253])
+    assert pack.raw[4:12] == b"00000004"
+    assert pack.raw[12] == 9
+    assert pack.body_length == 4

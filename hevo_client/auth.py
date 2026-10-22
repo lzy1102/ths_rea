@@ -172,6 +172,30 @@ class AuthPassportV1:
         return result
 
     @property
+    def server_groups_v2(self):
+        from .servers import parse_data_server_groups
+        return parse_data_server_groups(self.passport_value_dictionary.get("M_hqdns", ""))
+
+    @property
+    def server_groups_v3(self):
+        from .servers import parse_data_server_groups
+        return parse_data_server_groups(self.passport_value_dictionary.get("M_wg", ""))
+
+    @property
+    def server_groups_v1(self):
+        from .servers import parse_data_server_groups
+        return parse_data_server_groups(self.passport_value_dictionary.get("M_hq", ""))
+
+    @property
+    def server_groups_v1_info(self):
+        from .servers import parse_data_server_groups
+        return parse_data_server_groups(self.passport_value_dictionary.get("M_zx", ""))
+
+    def select_main_quote_server(self):
+        from .servers import select_main_quote_group
+        return select_main_quote_group(self.server_groups_v2)
+
+    @property
     def sid_dictionary(self):
         result = {}
         text = self.passport_value_dictionary.get("sid", "")

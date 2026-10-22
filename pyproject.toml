@@ -48,3 +48,6 @@ ths_client = [
     "data/startup/*.bin",
     "data/startup_sh/*.bin",
 ]
+hevo_client = [
+    "data/MarketData.xml",
+]

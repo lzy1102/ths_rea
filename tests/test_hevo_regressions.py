@@ -294,3 +294,65 @@ def test_salt_sign_headers_are_deterministic_with_fixed_timestamp():
     assert headers["X-Auth-Crnd"] == headers["X-Auth-Ext"] == "123456789012345678"
     assert len(headers["X-Auth-Sign"]) == 64
     assert headers["X-Auth-Sign"] == headers["X-Auth-Sign"].upper()
+
+
+def test_parse_data_server_groups_structure():
+    from hevo_client.servers import parse_data_server_groups
+    groups = parse_data_server_groups(
+        "1.2.3.4:7709:17;18:5.6.7.8-7708-t-1-g#9.9.9.9-7707-x-2-y")
+    assert len(groups) == 3
+    assert groups[0].host_or_ip == "1.2.3.4"
+    assert groups[0].port == 7709
+    assert groups[0].service_tags == ["17", "18"]
+    assert groups[1].host_or_ip == "5.6.7.8"
+    assert groups[1].port == 7708
+    assert groups[1].tag_string == "t"
+    assert groups[1].group_name == "g"
+    assert groups[2].host_or_ip == "9.9.9.9"
+    assert groups[2].port == 7707
+
+
+def test_parse_data_server_groups_skips_empty_port():
+    from hevo_client.servers import parse_data_server_groups
+    assert parse_data_server_groups("1.2.3.4::17") == []
+    assert parse_data_server_groups("") == []
+
+
+def test_supported_markets_maps_old_ids():
+    from hevo_client.markets import supported_markets
+    assert supported_markets(["17"]) == ["USHA"]
+    assert supported_markets(["16"]) == ["USHI"]
+    assert supported_markets(["23"]) == ["USHC"]
+    assert supported_markets(["9999"]) == [""]
+
+
+def test_is_main_quote_server_uses_exact_match():
+    from hevo_client.markets import is_main_quote_server
+    assert is_main_quote_server(["USHI", "USZI"]) is True
+    assert is_main_quote_server(["USHA", "USHC"]) is False
+    assert is_main_quote_server(["USH"]) is True
+    assert is_main_quote_server(["USZ"]) is True
+
+
+def test_passport_exposes_server_groups():
+    from hevo_client.auth import AuthPassportV1
+    passport = AuthPassportV1()
+    passport.passport_value_string = (
+        "M_hqdns=1.2.3.4:7709:17|M_wg=9.9.9.9:9999:17|M_hq=8.8.8.8:8888:17|M_zx=7.7.7.7:7777:17")
+    assert passport.server_groups_v2[0].host_or_ip == "1.2.3.4"
+    assert passport.server_groups_v3[0].port == 9999
+    assert passport.server_groups_v1[0].port == 8888
+    assert passport.server_groups_v1_info[0].port == 7777
+
+
+def test_client_resolve_endpoint_from_passport():
+    from hevo_client.client import HevoClient
+    from hevo_client.auth import AuthPassportV1
+    passport = AuthPassportV1()
+    passport.passport_value_string = "M_hqdns=1.2.3.4:7709:17|M_wg=9.9.9.9:9999:17"
+    client = HevoClient()
+    client.auth = {"passport": passport}
+    assert client.resolve_endpoint("V2") == ("1.2.3.4", 7709)
+    assert client.host == "1.2.3.4"
+    assert client.port == 7709
+    assert client.resolve_endpoint("V3") == ("9.9.9.9", 9999)

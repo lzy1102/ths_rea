@@ -5,6 +5,7 @@ from .constants import APP_ID, AUTH_CENTER_URL, DEFAULT_QSID, PRODUCT_NAME
 from .errors import AuthError, HevoError, HxError, ProtocolError
 from .hxfile import HxFile
 from .salt import AuthSaltResponse, SaltData, login_salt
+from .servers import DataServerGroup, parse_data_server_groups, select_main_quote_group
 
 __all__ = [
     "HevoClient",
@@ -20,6 +21,9 @@ __all__ = [
     "AuthPassportV1",
     "AuthSaltResponse",
     "SaltData",
+    "DataServerGroup",
+    "parse_data_server_groups",
+    "select_main_quote_group",
     "login",
     "login_salt",
     "make_auth_bytes",

@@ -64,6 +64,26 @@ class HevoClient:
         self._auth_sent = False
         return self.auth
 
+    def resolve_endpoint(self, version="V2"):
+        passport = None
+        if self.auth is not None:
+            passport = self.auth.get("passport")
+        if passport is None:
+            raise HevoError("no passport for endpoint resolution")
+        if version == "V3":
+            groups = passport.server_groups_v3
+        elif version == "V1":
+            groups = passport.server_groups_v1
+        else:
+            groups = passport.server_groups_v2
+        from .servers import select_main_quote_group
+        group = select_main_quote_group(groups)
+        if group is None:
+            raise HevoError("no quote server group in passport")
+        self.host = group.host_or_ip
+        self.port = group.port
+        return self.host, self.port
+
     def query_intraday(self, code, market="USHA", date="0", host=None, port=None):
         if self.auth is None and self.auth_bytes is None:
             raise AuthError("not logged in")

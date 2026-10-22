@@ -356,3 +356,30 @@ def test_client_resolve_endpoint_from_passport():
     assert client.host == "1.2.3.4"
     assert client.port == 7709
     assert client.resolve_endpoint("V3") == ("9.9.9.9", 9999)
+
+
+def test_multi_pack_merge_is_positional_like_original():
+    from hevo_client.binarypack import get_merge_index, merge_rows
+    rows = [{5: 300, 1: 1000}, {5: 200, 1: 2000}, {5: 100, 1: 1000}]
+    result = []
+    code_indexs = {}
+    time_indexs = {}
+    for i, row in enumerate(rows):
+        index = get_merge_index(True, code_indexs, time_indexs, i, row, len(result))
+        merge_rows(result, index, row)
+    assert len(result) == 3
+    assert result[0] == {5: 300, 1: 1000}
+
+
+def test_single_pack_merge_always_appends():
+    from hevo_client.binarypack import get_merge_index, merge_rows
+    rows = [{5: 300, 1: 1000}, {5: 300, 1: 1000}]
+    result = []
+    code_indexs = {}
+    time_indexs = {}
+    for i, row in enumerate(rows):
+        index = get_merge_index(False, code_indexs, time_indexs, i, row, len(result))
+        merge_rows(result, index, row)
+    assert len(result) == 2
+    assert result[0] == {5: 300, 1: 1000}
+    assert result[1] == {5: 300, 1: 1000}

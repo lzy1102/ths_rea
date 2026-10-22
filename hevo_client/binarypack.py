@@ -222,18 +222,16 @@ class DataResponseV2:
 def get_merge_index(is_multi_pack, code_indexs, time_indexs, row_number, row_val, result_number):
     if not is_multi_pack:
         return -1
-    code = _get_or_add_index(row_val, code_indexs, 5, result_number)
-    time = _get_or_add_index(row_val, time_indexs, 1, result_number)
-    if code[0]:
-        return code[1]
-    if time[0]:
-        return time[1]
     return row_number
 
 def _get_or_add_index(row_val, indexs, field_id, result_number):
     if field_id not in row_val:
         return (False, 0)
     value = row_val[field_id]
+    try:
+        hash(value)
+    except TypeError:
+        return (False, 0)
     if value not in indexs:
         indexs[value] = result_number
         return (False, -1)

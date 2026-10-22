@@ -180,7 +180,10 @@ def handle_xor(message, key):
         raise ValueError("xor key too short")
     out = bytearray()
     for index, char in enumerate(message):
-        out.append((ord(char) ^ ord(key[index])) & 0xFF)
+        value = ord(char) ^ ord(key[index])
+        if value > 0xFF:
+            raise ValueError("xor operand out of byte range")
+        out.append(value)
     return "".join(chr(byte) if byte < 128 else "?" for byte in out)
 
 

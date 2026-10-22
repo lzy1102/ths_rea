@@ -1,6 +1,6 @@
 from .auth import AuthPassportV1, AuthPublicKeyV1, AuthSessionV1, login, make_auth_bytes
 from .binarypack import DataResponseV2, request_trend_v2
-from .client import HevoClient
+from .client import HevoClient, HevoCredentials
 from .constants import APP_ID, AUTH_CENTER_URL, DEFAULT_QSID, PRODUCT_NAME
 from .errors import AuthError, HevoError, HxError, ProtocolError
 from .hxfile import HxFile

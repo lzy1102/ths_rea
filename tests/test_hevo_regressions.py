@@ -383,3 +383,68 @@ def test_single_pack_merge_always_appends():
     assert len(result) == 2
     assert result[0] == {5: 300, 1: 1000}
     assert result[1] == {5: 300, 1: 1000}
+
+
+def test_supported_markets_zero_old_id_keeps_first_market():
+    from hevo_client.markets import (
+        parse_market,
+        parse_market_from_old_id,
+        supported_markets,
+    )
+    assert supported_markets(["0"]) == ["UZF"]
+    assert supported_markets(["-0"]) == ["UZF"]
+    assert supported_markets(["+0"]) == ["UZF"]
+    assert supported_markets(["00"]) == ["UZF"]
+    assert parse_market("0") == "UZF"
+    assert parse_market_from_old_id(0) == "UZF"
+
+
+def test_parse_market_from_old_id_unknown_is_empty():
+    from hevo_client.markets import parse_market_from_old_id
+    assert parse_market_from_old_id(9999) == ""
+    assert parse_market_from_old_id(-1) == ""
+
+
+def test_server_ports_use_uint16_range():
+    from hevo_client.servers import parse_data_server_groups
+    assert parse_data_server_groups("h:32768:16")[0].port == 32768
+    assert parse_data_server_groups("h:40000:16")[0].port == 40000
+    assert parse_data_server_groups("h:65535:16")[0].port == 65535
+    assert parse_data_server_groups("h:+16:16")[0].port == 16
+    assert parse_data_server_groups("h: 16 :16")[0].port == 16
+    assert parse_data_server_groups("h:-0:16")[0].port == 0
+    assert parse_data_server_groups("h:016:16")[0].port == 16
+    for bad_port in ("65536", "-1", "6.5e3"):
+        try:
+            parse_data_server_groups("h:%s:16" % bad_port)
+        except ValueError:
+            continue
+        raise AssertionError("expected ValueError for port %r" % bad_port)
+
+
+def test_server_child_ports_use_uint16_range():
+    from hevo_client.servers import parse_data_server_groups
+    groups = parse_data_server_groups("h:8601:16:c-40000-a:tag:0:group")
+    assert len(groups) == 2
+    assert groups[0].children[0] is groups[1]
+    assert groups[1].port == 40000
+    assert groups[1].tag_string == "a"
+    assert groups[1].priority == "Secondary"
+    try:
+        parse_data_server_groups("h:8601:16:c-65536-a:tag:0:group")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("expected ValueError for child port 65536")
+
+
+def test_is_main_quote_server_tags_uses_int16_tags():
+    from hevo_client.markets import is_main_quote_server_tags
+    assert is_main_quote_server_tags(["144"]) is True
+    assert is_main_quote_server_tags(["16", "48"]) is True
+    assert is_main_quote_server_tags(["+32"]) is True
+    assert is_main_quote_server_tags([" 16 "]) is True
+    assert is_main_quote_server_tags(["48", "64"]) is False
+    assert is_main_quote_server_tags(["32768"]) is False
+    assert is_main_quote_server_tags(["-16"]) is False
+    assert is_main_quote_server_tags([]) is False

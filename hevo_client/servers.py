@@ -1,4 +1,4 @@
-from .markets import is_main_quote_server, supported_markets
+from .markets import is_main_quote_server_tags, parse_uint16, supported_markets
 
 
 class DataServerGroup:
@@ -10,6 +10,7 @@ class DataServerGroup:
         self.group_name = group_name
         self.priority = "Primary"
         self.weight = 0
+        self.children = []
 
     @property
     def supported_markets(self):
@@ -17,64 +18,69 @@ class DataServerGroup:
 
     @property
     def is_main_quote_server(self):
-        return is_main_quote_server(self.supported_markets)
+        return is_main_quote_server_tags(self.service_tags)
 
     def __repr__(self):
         return "DataServerGroup(%s:%s tags=%s)" % (self.host_or_ip, self.port, ",".join(self.service_tags))
 
 
-def parse_data_server_groups(value):
+def _split_entry(entry):
+    parts = entry.split(":")
+    if len(parts) < 2:
+        raise ValueError("invalid server entry: " + entry)
+    if not parts[1]:
+        return None
+    port = parse_uint16(parts[1])
+    if port is None:
+        raise ValueError("invalid server port: " + parts[1])
+    if len(parts) < 3:
+        raise ValueError("invalid server entry: " + entry)
+    service_tags = [tag for tag in parts[2].split(";") if tag]
+    tag_string = parts[4] if len(parts) > 4 else ""
+    group_name = parts[6] if len(parts) > 6 else ""
+    return parts, port, service_tags, tag_string, group_name
+
+
+def _parse_children(spec, service_tags):
+    children = []
+    for sub in [item for item in spec.split("#") if item]:
+        sub_parts = [item for item in sub.split("-") if item]
+        if len(sub_parts) < 2:
+            continue
+        port = parse_uint16(sub_parts[1])
+        if port is None:
+            raise ValueError("invalid child server port: " + sub_parts[1])
+        child = DataServerGroup(
+            sub_parts[0],
+            port,
+            service_tags,
+            sub_parts[2] if len(sub_parts) > 2 else "",
+            sub_parts[4] if len(sub_parts) > 4 else "",
+        )
+        child.priority = "Secondary"
+        children.append(child)
+    return children
+
+
+def parse_data_server_groups(value, include_children=True):
     if not value:
         return []
     groups = []
     for entry in value.split(","):
         if not entry:
             continue
-        parts = entry.split(":")
-        if len(parts) < 2:
+        parsed = _split_entry(entry)
+        if parsed is None:
             continue
-        host_or_ip = parts[0]
-        if not parts[1]:
-            continue
-        try:
-            port = int(parts[1]) & 0xFFFF
-        except ValueError:
-            continue
-        service_tags = [tag for tag in parts[2].split(";") if tag] if len(parts) > 2 else []
-        tag_string = ""
-        if len(parts) > 4:
-            tag_string = parts[4]
-        weight = 0
-        if len(parts) > 5:
-            try:
-                weight = int(parts[5]) & 0xFFFF
-            except ValueError:
-                weight = 0
-        group_name = parts[6] if len(parts) > 6 else ""
-        group = DataServerGroup(host_or_ip, port, service_tags, tag_string, group_name)
-        group.weight = weight
+        parts, port, service_tags, tag_string, group_name = parsed
+        group = DataServerGroup(parts[0], port, service_tags, tag_string, group_name)
         groups.append(group)
         if len(parts) < 4:
             continue
-        for sub in [item for item in parts[3].split("#") if item]:
-            sub_parts = [item for item in sub.split("-") if item]
-            if len(sub_parts) < 2:
-                continue
-            try:
-                sub_port = int(sub_parts[1]) & 0xFFFF
-            except ValueError:
-                continue
-            sub_tag = sub_parts[2] if len(sub_parts) > 2 else ""
-            sub_weight = 0
-            if len(sub_parts) > 3:
-                try:
-                    sub_weight = int(sub_parts[3]) & 0xFFFF
-                except ValueError:
-                    sub_weight = 0
-            sub_group_name = sub_parts[4] if len(sub_parts) > 4 else ""
-            sub_group = DataServerGroup(sub_parts[0], sub_port, service_tags, sub_tag, sub_group_name)
-            sub_group.weight = sub_weight
-            groups.append(sub_group)
+        for child in _parse_children(parts[3], service_tags):
+            group.children.append(child)
+            if include_children:
+                groups.append(child)
     return groups
 
 

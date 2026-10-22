@@ -174,22 +174,22 @@ class AuthPassportV1:
     @property
     def server_groups_v2(self):
         from .servers import parse_data_server_groups
-        return parse_data_server_groups(self.passport_value_dictionary.get("M_hqdns", ""))
+        return parse_data_server_groups(self.passport_value_dictionary.get("M_hqdns", ""), include_children=False)
 
     @property
     def server_groups_v3(self):
         from .servers import parse_data_server_groups
-        return parse_data_server_groups(self.passport_value_dictionary.get("M_wg", ""))
+        return parse_data_server_groups(self.passport_value_dictionary.get("M_wg", ""), include_children=False)
 
     @property
     def server_groups_v1(self):
         from .servers import parse_data_server_groups
-        return parse_data_server_groups(self.passport_value_dictionary.get("M_hq", ""))
+        return parse_data_server_groups(self.passport_value_dictionary.get("M_hq", ""), include_children=False)
 
     @property
     def server_groups_v1_info(self):
         from .servers import parse_data_server_groups
-        return parse_data_server_groups(self.passport_value_dictionary.get("M_zx", ""))
+        return parse_data_server_groups(self.passport_value_dictionary.get("M_zx", ""), include_children=False)
 
     def select_main_quote_server(self):
         from .servers import select_main_quote_group

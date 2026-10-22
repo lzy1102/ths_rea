@@ -5,6 +5,9 @@ import xml.etree.ElementTree as ET
 _MARKET_BY_OLD_ID = {}
 _MARKET_BY_ID = {}
 _MARKET_DATA_LOADED = False
+_INT16_RE = re.compile(r"^[+-]?[0-9]+$")
+_NEW_PARENT_MARKET_RE = re.compile(r"^[A-Z]{3}$")
+MAIN_QUOTE_OLD_IDS = (16, 32, 144)
 
 
 def _load_market_data():
@@ -35,12 +38,13 @@ def _load_market_data():
             continue
         _MARKET_BY_ID[market_id] = market_id
         try:
-            _MARKET_BY_OLD_ID[int(old_id)] = market_id
+            _MARKET_BY_OLD_ID.setdefault(int(old_id), market_id)
         except ValueError:
             continue
 
 
 def parse_market(text):
+    _load_market_data()
     if not text:
         return ""
     if text == "SPECIAL":
@@ -60,10 +64,34 @@ def parse_market_from_old_id(old_id):
     return _MARKET_BY_OLD_ID.get(old_id, "")
 
 
+def parse_int16(text):
+    if not isinstance(text, str):
+        return None
+    stripped = text.strip()
+    if not _INT16_RE.match(stripped):
+        return None
+    value = int(stripped)
+    if value < -32768 or value > 32767:
+        return None
+    return value
+
+
+def parse_uint16(text):
+    if not isinstance(text, str):
+        return None
+    stripped = text.strip()
+    if not _INT16_RE.match(stripped):
+        return None
+    value = int(stripped)
+    if value < 0 or value > 65535:
+        return None
+    return value
+
+
 def is_new_parent_market(text):
     if not text:
         return False
-    return len(text) == 4 and all("A" <= ch <= "Z" for ch in text)
+    return bool(_NEW_PARENT_MARKET_RE.match(text))
 
 
 def supported_markets(service_tags):
@@ -72,15 +100,22 @@ def supported_markets(service_tags):
     for text in service_tags or []:
         if not text:
             continue
-        try:
-            stripped = text[1:] if text[0] == "-" else text
-            if stripped.isdigit():
-                result.append(parse_market_from_old_id(int(text)))
-            elif is_new_parent_market(text):
-                result.append(parse_market(text))
-        except Exception:
-            continue
+        value = parse_int16(text)
+        if value is not None:
+            result.append(parse_market_from_old_id(value))
+        elif is_new_parent_market(text):
+            result.append(parse_market(text))
     return result
+
+
+def is_main_quote_server_tags(service_tags):
+    for text in service_tags or []:
+        if not text:
+            continue
+        value = parse_int16(text)
+        if value is not None and value in MAIN_QUOTE_OLD_IDS:
+            return True
+    return False
 
 
 def is_main_quote_server(supported):

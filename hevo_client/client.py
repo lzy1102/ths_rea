@@ -6,10 +6,20 @@ from .auth import get_auth_passport
 from .auth import login as auth_login
 from .auth import make_auth_bytes
 from .auth import get_mac_address
-from .binarypack import (BinaryPack, BinaryPackLayoutV2, DataResponseV2, distribute_candle_fields, format_candle_time, get_real_period_id, merge_candle_responses, normalize_candle_fields, parameter_dictionary_to_binary_pack, parameter_dictionary_to_string, request_candle_v2, request_trend_v2, string_to_parameter_dictionary)
-from .constants import CANDLE_FIELD_IDS, DEFAULT_QSID, INDEX_MARKETS
+from .binarypack import (BinaryPack, BinaryPackLayoutV2, DataResponseV2, calculate_realtime_field, distribute_candle_fields, distribute_realtime_fields, expand_realtime_fields, format_candle_time, get_real_period_id, merge_candle_responses, normalize_candle_fields, normalize_realtime_fields, parameter_dictionary_to_binary_pack, parameter_dictionary_to_string, parse_selfstock_securities, realtime_full_code, realtime_rows_from_response, request_candle_v2, request_realtime_v2, request_trend_v2, string_to_parameter_dictionary)
+from .constants import CANDLE_FIELD_IDS, DEFAULT_QSID, INDEX_MARKETS, REALTIME_CALCULATOR_FIELDS, REALTIME_FIELD_IDS
 from .errors import AuthError, HevoError
 from .salt import login_salt
+
+def _realtime_key(value, market):
+    if value is None:
+        return None
+    text = str(value)
+    if not text:
+        return None
+    if len(text) <= 6 and market and not text.upper().startswith(market.upper()):
+        return realtime_full_code(market, text)
+    return text
 
 class HevoClient:
     def __init__(self, host=None, port=None, username=None, password=None, http_get=None, http_post=None, transport=None, qsid=DEFAULT_QSID):
@@ -140,6 +150,94 @@ class HevoClient:
             bp = BinaryPack.from_bytes(response_bytes)
             responses.append((request_id, DataResponseV2(full_pack=bp)))
         return merge_candle_responses(responses, real_period)
+
+    def query_quotes(self, securities, fields=None, host=None, port=None):
+        if self.auth is None and self.auth_bytes is None:
+            raise AuthError("not logged in")
+        security_list = []
+        market_codes = {}
+        market_order = []
+        for market, code in securities:
+            security_list.append((market, code))
+            if market not in market_codes:
+                market_codes[market] = []
+                market_order.append(market)
+            market_codes[market].append(code)
+        if not security_list:
+            return []
+        requested_fields = normalize_realtime_fields(fields)
+        request_fields, calculators = expand_realtime_fields(requested_fields)
+        buckets = distribute_realtime_fields(requested_fields)
+        rows_by_key = {}
+        for market, code in security_list:
+            key = realtime_full_code(market, code)
+            if key in rows_by_key:
+                continue
+            row = {}
+            for field_id in requested_fields:
+                row[field_id] = None
+            if REALTIME_FIELD_IDS["full_code"] in requested_fields:
+                row[REALTIME_FIELD_IDS["full_code"]] = key
+            rows_by_key[key] = row
+        if not buckets:
+            return list(rows_by_key.values())
+        target_host = host if host is not None else self.host
+        target_port = port if port is not None else self.port
+        if self.transport is None and (target_host is None or target_port is None):
+            raise HevoError("no transport or host/port")
+        for market in market_order:
+            codes = market_codes[market]
+            for request_id, bucket_fields in buckets:
+                request_string = request_realtime_v2(request_id, market, codes, bucket_fields)
+                params = string_to_parameter_dictionary(request_string)
+                request_string = parameter_dictionary_to_string(params)
+                pack = parameter_dictionary_to_binary_pack(params)
+                request_bytes = pack.raw
+                if self.transport is not None:
+                    if self.auth_bytes is not None and not self._auth_sent:
+                        self.transport(self.auth_bytes)
+                        self._auth_sent = True
+                    response_bytes = self.transport(request_bytes)
+                else:
+                    response_bytes = self._send_socket(target_host, target_port, request_bytes)
+                bp = BinaryPack.from_bytes(response_bytes)
+                response = DataResponseV2(full_pack=bp)
+                rows = realtime_rows_from_response(response)
+                if rows and len(rows) == len(codes):
+                    for row, code in zip(rows, codes):
+                        if REALTIME_FIELD_IDS["full_code"] not in row:
+                            row[REALTIME_FIELD_IDS["full_code"]] = realtime_full_code(market, code)
+                for row in rows:
+                    key = _realtime_key(row.get(REALTIME_FIELD_IDS["full_code"]), market)
+                    target = rows_by_key.get(key)
+                    if target is None:
+                        continue
+                    for field_id in request_fields:
+                        if field_id in REALTIME_CALCULATOR_FIELDS:
+                            continue
+                        if field_id in row:
+                            target[field_id] = row[field_id]
+                    for field_id in calculators:
+                        if field_id in row and row[field_id] is not None:
+                            target[field_id] = row[field_id]
+        for row in rows_by_key.values():
+            for field_id in calculators:
+                if row.get(field_id) is None:
+                    value = calculate_realtime_field(field_id, row)
+                    if value is not None:
+                        row[field_id] = value
+            for field_id in list(row.keys()):
+                if field_id not in requested_fields:
+                    del row[field_id]
+        return list(rows_by_key.values())
+
+    def query_watchlist(self, codes, market="USHA", fields=None, host=None, port=None):
+        securities = [(market, code) for code in codes]
+        return self.query_quotes(securities, fields=fields, host=host, port=port)
+
+    def query_selfstock_quotes(self, selfstock_text, fields=None, host=None, port=None):
+        securities = parse_selfstock_securities(selfstock_text)
+        return self.query_quotes(securities, fields=fields, host=host, port=port)
 
     def _send_socket(self, host, port, data):
         sock = self._get_socket(host, port)

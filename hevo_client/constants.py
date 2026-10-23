@@ -161,3 +161,44 @@ INDEX_MARKETS = {
     "UZZI",
     "UTII",
 }
+
+REALTIME_REQUEST_IDS = (200, 201, 202)
+
+REALTIME_FIELD_IDS = dict(CANDLE_FIELD_IDS)
+REALTIME_FIELD_IDS.update({
+    "rise_five_minutes": 48,
+    "rise_per_five_minutes": 48,
+    "rise_amount": 264648,
+    "change": 264648,
+    "DDE": 592888,
+    "DDE_MONEY": 592890,
+    "main_net_amount": 592890,
+    "main_net_volume": 592888,
+    "total_amount": 19,
+    "代码": 5,
+    "名称": 55,
+    "涨幅": 199112,
+    "现价": 10,
+    "涨速": 48,
+    "涨跌": 264648,
+    "主力净额": 592890,
+    "主力净量": 592888,
+    "总金额": 19,
+})
+
+DEFAULT_WATCHLIST_FIELDS = [
+    "full_code",
+    "security_name",
+    "rise_percentage",
+    "latest",
+    "rise_five_minutes",
+    "rise_amount",
+    "DDE_MONEY",
+    "DDE",
+    "transaction_amount",
+]
+
+REALTIME_CALCULATOR_FIELDS = {
+    199112: (10, 6),
+    264648: (10, 6),
+}

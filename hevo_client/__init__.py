@@ -1,7 +1,7 @@
 from .auth import AuthPassportV1, AuthPublicKeyV1, AuthSessionV1, login, make_auth_bytes
-from .binarypack import (DataResponseV2, candle_rows_from_response, distribute_candle_fields, format_candle_time, get_real_period_id, is_minute_period, is_second_period, merge_candle_responses, normalize_candle_field, normalize_candle_fields, request_candle_v2, request_trend_v2, resolve_period_id, right_to_protocol)
+from .binarypack import (DataResponseV2, calculate_realtime_field, candle_rows_from_response, distribute_candle_fields, distribute_realtime_fields, expand_realtime_fields, format_candle_time, get_real_period_id, is_minute_period, is_second_period, merge_candle_responses, merge_realtime_responses, normalize_candle_field, normalize_candle_fields, normalize_realtime_field, normalize_realtime_fields, parse_selfstock_securities, realtime_full_code, realtime_rows_from_response, request_candle_v2, request_realtime_v2, request_trend_v2, resolve_period_id, right_to_protocol)
 from .client import HevoClient, HevoCredentials
-from .constants import APP_ID, AUTH_CENTER_URL, CANDLE_FIELD_IDS, DEFAULT_CANDLE_FIELDS, DEFAULT_QSID, INDEX_MARKETS, PERIOD_ALIASES, PERIOD_REAL_IDS, PRODUCT_NAME, RIGHT_VALUES
+from .constants import APP_ID, AUTH_CENTER_URL, CANDLE_FIELD_IDS, DEFAULT_CANDLE_FIELDS, DEFAULT_QSID, DEFAULT_WATCHLIST_FIELDS, INDEX_MARKETS, PERIOD_ALIASES, PERIOD_REAL_IDS, PRODUCT_NAME, REALTIME_CALCULATOR_FIELDS, REALTIME_FIELD_IDS, REALTIME_REQUEST_IDS, RIGHT_VALUES
 from .errors import AuthError, HevoError, HxError, ProtocolError
 from .hxfile import HxFile
 from .salt import AuthSaltResponse, SaltData, login_salt
@@ -40,12 +40,26 @@ __all__ = [
     "format_candle_time",
     "candle_rows_from_response",
     "merge_candle_responses",
+    "request_realtime_v2",
+    "normalize_realtime_field",
+    "normalize_realtime_fields",
+    "expand_realtime_fields",
+    "distribute_realtime_fields",
+    "realtime_rows_from_response",
+    "merge_realtime_responses",
+    "calculate_realtime_field",
+    "parse_selfstock_securities",
+    "realtime_full_code",
     "APP_ID",
     "AUTH_CENTER_URL",
     "DEFAULT_QSID",
     "PRODUCT_NAME",
     "CANDLE_FIELD_IDS",
     "DEFAULT_CANDLE_FIELDS",
+    "REALTIME_FIELD_IDS",
+    "DEFAULT_WATCHLIST_FIELDS",
+    "REALTIME_REQUEST_IDS",
+    "REALTIME_CALCULATOR_FIELDS",
     "PERIOD_ALIASES",
     "PERIOD_REAL_IDS",
     "RIGHT_VALUES",

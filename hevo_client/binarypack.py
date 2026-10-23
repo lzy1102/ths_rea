@@ -2,7 +2,7 @@ import struct
 import zlib
 from datetime import date, datetime, timezone
 
-from .constants import (CANDLE_FIELD_IDS, DEFAULT_CANDLE_FIELDS, PERIOD_ALIASES, PERIOD_REAL_IDS, REQUEST_ID_CANDLE_BASE, REQUEST_ID_CANDLE_CALCULATION, REQUEST_ID_CANDLE_EXTRA, REQUEST_ID_CANDLE_FINANCIAL, RIGHT_VALUES)
+from .constants import (CANDLE_FIELD_IDS, DEFAULT_CANDLE_FIELDS, DEFAULT_WATCHLIST_FIELDS, PERIOD_ALIASES, PERIOD_REAL_IDS, REALTIME_CALCULATOR_FIELDS, REALTIME_FIELD_IDS, REQUEST_ID_CANDLE_BASE, REQUEST_ID_CANDLE_CALCULATION, REQUEST_ID_CANDLE_EXTRA, REQUEST_ID_CANDLE_FINANCIAL, RIGHT_VALUES)
 from .errors import HxError, ProtocolError
 from .hxfile import snappy_decompress
 from .encoding import gbk_encode, gbk_decode
@@ -515,6 +515,172 @@ def merge_candle_responses(responses, period=5):
                 if field_id not in target:
                     target[field_id] = value
     return result
+
+def normalize_realtime_field(field):
+    if isinstance(field, bool):
+        raise ProtocolError("unsupported realtime field: %r" % (field,))
+    if isinstance(field, int):
+        return field
+    if isinstance(field, str):
+        if field in REALTIME_FIELD_IDS:
+            return REALTIME_FIELD_IDS[field]
+        lower = field.lower()
+        for name, field_id in REALTIME_FIELD_IDS.items():
+            if name.lower() == lower:
+                return field_id
+        try:
+            return int(field)
+        except ValueError:
+            pass
+    raise ProtocolError("unsupported realtime field: %r" % (field,))
+
+def normalize_realtime_fields(fields):
+    if fields is None:
+        values = list(DEFAULT_WATCHLIST_FIELDS)
+    elif isinstance(fields, (str, int)) and not isinstance(fields, bool):
+        values = [fields]
+    else:
+        values = list(fields)
+    result = []
+    for field in values:
+        field_id = normalize_realtime_field(field)
+        if field_id not in result:
+            result.append(field_id)
+    return result
+
+def expand_realtime_fields(fields):
+    field_ids = normalize_realtime_fields(fields)
+    result = []
+    calculators = []
+    for field_id in field_ids:
+        if field_id in REALTIME_CALCULATOR_FIELDS:
+            if field_id not in calculators:
+                calculators.append(field_id)
+            for base_field_id in REALTIME_CALCULATOR_FIELDS[field_id]:
+                if base_field_id not in result:
+                    result.append(base_field_id)
+            continue
+        if field_id not in result:
+            result.append(field_id)
+    return result, calculators
+
+def _realtime_request_id(field_id):
+    if 0 < field_id <= 300:
+        return 200
+    masked = field_id & 0x0FFF
+    if 301 <= masked <= 2101:
+        return 201
+    return 202
+
+def distribute_realtime_fields(fields):
+    field_ids, _ = expand_realtime_fields(fields)
+    buckets = {200: [], 201: [], 202: []}
+    for field_id in field_ids:
+        buckets[_realtime_request_id(field_id)].append(field_id)
+    result = []
+    for request_id in (200, 201, 202):
+        if buckets[request_id]:
+            result.append((request_id, sorted(set(buckets[request_id]))))
+    return result
+
+def request_realtime_v2(request_id, market, codes, fields=None):
+    field_ids, _ = expand_realtime_fields(fields)
+    if isinstance(codes, str):
+        codes = [codes]
+    code_list = ",".join(str(code) for code in codes)
+    return "id=%s&market=%s&codelist=%s&datatype=%s" % (request_id, market, code_list, ",".join(str(field_id) for field_id in field_ids))
+
+def _realtime_row_key(row):
+    value = row.get(REALTIME_FIELD_IDS["full_code"])
+    if value is None:
+        return None
+    text = str(value)
+    if not text:
+        return None
+    return text
+
+def _merge_realtime_rows(rows):
+    result = []
+    indexes = {}
+    for row in rows:
+        key = _realtime_row_key(row)
+        if key is not None and key in indexes:
+            target = result[indexes[key]]
+            for field_id, value in row.items():
+                if field_id not in target:
+                    target[field_id] = value
+            continue
+        if key is not None:
+            indexes[key] = len(result)
+        result.append(dict(row))
+    return result
+
+def realtime_rows_from_response(response):
+    from .hxfile import HxFile
+    if response is None or response.is_bad:
+        return []
+    layout = response.pack_layout
+    if layout is None:
+        return []
+    hxlong_conversion = "AsPush" if response.is_push_response else "AsResponse"
+    rows = []
+    for offset in layout.data_segment_offsets:
+        hx = HxFile(layout.full_pack.full_bytes, offset, hxlong_conversion)
+        if hx.version == "UnKnow" or hx.is_bad:
+            continue
+        for row in hx.as_list():
+            rows.append(dict(row))
+    return _merge_realtime_rows(rows)
+
+def merge_realtime_responses(responses):
+    rows = []
+    for response in responses:
+        if isinstance(response, tuple):
+            response = response[1]
+        if isinstance(response, BinaryPack):
+            response = DataResponseV2(full_pack=response)
+        rows.extend(realtime_rows_from_response(response))
+    return _merge_realtime_rows(rows)
+
+def parse_selfstock_securities(text):
+    from .markets import parse_market
+    if not text:
+        return []
+    parts = str(text).split(",")
+    codes = [code for code in parts[0].split("|") if code]
+    markets = [market for market in parts[1].split("|") if market] if len(parts) > 1 else []
+    result = []
+    for index, code in enumerate(codes):
+        market = markets[index] if index < len(markets) else "USHA"
+        parsed = parse_market(market) if market else "USHA"
+        result.append((parsed or "USHA", code))
+    return result
+
+def realtime_full_code(market, code):
+    return "%s%s" % (market, code)
+
+def _realtime_number(value):
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+def calculate_realtime_field(field_id, row):
+    latest = _realtime_number(row.get(REALTIME_FIELD_IDS["latest"]))
+    prev_close = _realtime_number(row.get(REALTIME_FIELD_IDS["prev_close"]))
+    if latest is None or prev_close is None:
+        return None
+    if field_id == REALTIME_FIELD_IDS["rise_percentage"]:
+        if prev_close == 0:
+            return 0.0
+        return (latest - prev_close) / abs(prev_close) * 100
+    if field_id == REALTIME_FIELD_IDS["rise_amount"]:
+        if latest != 0 and prev_close != 0:
+            return latest - prev_close
+        return float("nan")
+    return None
 
 BinaryPack.FullBytes = property(lambda self: self.full_bytes)
 BinaryPack.HeadLength = property(lambda self: self.head_length)

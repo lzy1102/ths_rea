@@ -1,6 +1,8 @@
 import struct
 import zlib
+from datetime import date, datetime, timezone
 
+from .constants import (CANDLE_FIELD_IDS, DEFAULT_CANDLE_FIELDS, PERIOD_ALIASES, PERIOD_REAL_IDS, REQUEST_ID_CANDLE_BASE, REQUEST_ID_CANDLE_CALCULATION, REQUEST_ID_CANDLE_EXTRA, REQUEST_ID_CANDLE_FINANCIAL, RIGHT_VALUES)
 from .errors import HxError, ProtocolError
 from .hxfile import snappy_decompress
 from .encoding import gbk_encode, gbk_decode
@@ -219,6 +221,9 @@ class DataResponseV2:
             hx.as_dic_list(is_multi, result, code_indexs, time_indexs, False, get_merge_index, merge_rows)
         return result
 
+    def as_candle_list(self, period=5):
+        return candle_rows_from_response(self, period)
+
 def get_merge_index(is_multi_pack, code_indexs, time_indexs, row_number, row_val, result_number):
     if not is_multi_pack:
         return -1
@@ -286,6 +291,231 @@ def request_trend_v2(request_id, market, code, date, fields=None, is_auto_add_ba
             fields.append("date_time")
     return "id=%s&market=%s&code=%s&date=%s&datatype=%s" % (request_id, market, code, date, ",".join(fields))
 
+def _pack_candle_time(value):
+    return (value.minute & 0x3F) | ((value.hour & 0x1F) << 6) | ((value.day & 0x1F) << 11) | ((value.month & 0xF) << 16) | (((value.year - 1900) & 0xFF) << 20)
+
+def resolve_period_id(period):
+    if isinstance(period, bool):
+        raise ProtocolError("unsupported period: %r" % (period,))
+    if isinstance(period, int):
+        return period
+    if isinstance(period, str):
+        text = period.strip()
+        if text in PERIOD_ALIASES:
+            return PERIOD_ALIASES[text]
+        lower = text.lower()
+        for name, value in PERIOD_ALIASES.items():
+            if name.lower() == lower:
+                return value
+        try:
+            return int(text)
+        except ValueError:
+            pass
+    raise ProtocolError("unsupported period: %r" % (period,))
+
+def get_real_period_id(period):
+    value = resolve_period_id(period)
+    if value > 12288:
+        return value
+    return PERIOD_REAL_IDS.get(value, value)
+
+def is_minute_period(period):
+    real_period = get_real_period_id(period)
+    return 12288 <= real_period < 12544
+
+def is_second_period(period):
+    real_period = get_real_period_id(period)
+    return 12544 <= real_period < 16384
+
+def normalize_candle_field(field):
+    if isinstance(field, bool):
+        raise ProtocolError("unsupported candle field: %r" % (field,))
+    if isinstance(field, int):
+        return field
+    if isinstance(field, str):
+        if field in CANDLE_FIELD_IDS:
+            return CANDLE_FIELD_IDS[field]
+        lower = field.lower()
+        for name, field_id in CANDLE_FIELD_IDS.items():
+            if name.lower() == lower:
+                return field_id
+        try:
+            return int(field)
+        except ValueError:
+            pass
+    raise ProtocolError("unsupported candle field: %r" % (field,))
+
+def normalize_candle_fields(fields):
+    if fields is None:
+        values = list(DEFAULT_CANDLE_FIELDS)
+    elif isinstance(fields, (str, int)) and not isinstance(fields, bool):
+        values = [fields]
+    else:
+        values = list(fields)
+    result = []
+    for field in values:
+        field_id = normalize_candle_field(field)
+        if field_id not in result:
+            result.append(field_id)
+    return result
+
+def distribute_candle_fields(fields):
+    field_ids = normalize_candle_fields(fields)
+    buckets = {}
+    dqltg = []
+    for field_id in field_ids:
+        if field_id == CANDLE_FIELD_IDS["date_time"]:
+            continue
+        if field_id == CANDLE_FIELD_IDS["DQLTG"]:
+            dqltg.append(field_id)
+            continue
+        if 0 < field_id <= 300:
+            if field_id in (CANDLE_FIELD_IDS["prev_close"], CANDLE_FIELD_IDS["pre_settlement"]):
+                request_id = REQUEST_ID_CANDLE_EXTRA
+            else:
+                request_id = REQUEST_ID_CANDLE_BASE
+        elif 301 <= (field_id & 0x0FFF) <= 2101:
+            request_id = REQUEST_ID_CANDLE_FINANCIAL
+        else:
+            request_id = REQUEST_ID_CANDLE_CALCULATION
+        buckets.setdefault(request_id, []).append(field_id)
+    result = []
+    for request_id in (REQUEST_ID_CANDLE_BASE, REQUEST_ID_CANDLE_FINANCIAL, REQUEST_ID_CANDLE_CALCULATION):
+        values = buckets.get(request_id)
+        if values:
+            result.append((request_id, [CANDLE_FIELD_IDS["date_time"]] + values))
+    if dqltg:
+        result.append((REQUEST_ID_CANDLE_FINANCIAL, [CANDLE_FIELD_IDS["date_time"]] + dqltg))
+    values = buckets.get(REQUEST_ID_CANDLE_EXTRA)
+    if values:
+        result.append((REQUEST_ID_CANDLE_EXTRA, [CANDLE_FIELD_IDS["date_time"]] + values))
+    if result:
+        return result
+    if field_ids:
+        return [(REQUEST_ID_CANDLE_BASE, [CANDLE_FIELD_IDS["date_time"]])]
+    return []
+
+def right_to_protocol(right):
+    if right is None:
+        return ""
+    if isinstance(right, str):
+        if right in RIGHT_VALUES:
+            return RIGHT_VALUES[right]
+        lower = right.lower()
+        for name, value in RIGHT_VALUES.items():
+            if name.lower() == lower:
+                return value
+        if right in RIGHT_VALUES.values():
+            return right
+    raise ProtocolError("unsupported right: %r" % (right,))
+
+def format_candle_time(value, period=5):
+    real_period = get_real_period_id(period)
+    if isinstance(value, datetime):
+        if real_period < 16384:
+            return str(_pack_candle_time(value))
+        return value.strftime("%Y%m%d")
+    if isinstance(value, date):
+        return value.strftime("%Y%m%d")
+    return str(value)
+
+def _normalize_candle_date_time(value, real_period):
+    if real_period >= 16384 and isinstance(value, int) and not isinstance(value, bool):
+        return datetime.fromtimestamp(value + 28800, timezone.utc).strftime("%Y%m%d")
+    return value
+
+def request_candle_v2(request_id, market, code, start, end, fields=None, right="Forward", is_volume_exclude=False, period=5):
+    field_ids = normalize_candle_fields(fields)
+    start = format_candle_time(start, period)
+    end = format_candle_time(end, period)
+    fuquan = right_to_protocol(right)
+    parts = [
+        "id=%s" % request_id,
+        "market=%s" % market,
+        "code=%s" % code,
+        "start=%s" % start,
+        "end=%s" % end,
+        "datatype=%s" % ",".join(str(field_id) for field_id in field_ids),
+        "period=%s" % get_real_period_id(period),
+    ]
+    if fuquan:
+        parts.append("fuquan=%s" % fuquan)
+        if is_volume_exclude:
+            parts.append("fuquanopt=V")
+    return "&".join(parts)
+
+def _candle_row_key(row):
+    if CANDLE_FIELD_IDS["date_time"] not in row:
+        return None
+    if CANDLE_FIELD_IDS["full_code"] in row:
+        return (row[CANDLE_FIELD_IDS["full_code"]], row[CANDLE_FIELD_IDS["date_time"]])
+    return row[CANDLE_FIELD_IDS["date_time"]]
+
+def _merge_candle_rows(rows):
+    result = []
+    indexes = {}
+    for row in rows:
+        key = _candle_row_key(row)
+        if key is not None and key in indexes:
+            target = result[indexes[key]]
+            for field_id, value in row.items():
+                if field_id not in target:
+                    target[field_id] = value
+            continue
+        if key is not None:
+            indexes[key] = len(result)
+        result.append(dict(row))
+    return result
+
+def candle_rows_from_response(response, period=5):
+    from .hxfile import HxFile
+    if response is None or response.is_bad:
+        return []
+    layout = response.pack_layout
+    if layout is None:
+        return []
+    hxlong_conversion = "AsPush" if response.is_push_response else "AsResponse"
+    real_period = get_real_period_id(period)
+    rows = []
+    for offset in layout.data_segment_offsets:
+        hx = HxFile(layout.full_pack.full_bytes, offset, hxlong_conversion)
+        if hx.version == "UnKnow" or hx.is_bad:
+            continue
+        for row in hx.as_list(is_candle_data=True):
+            row = dict(row)
+            if CANDLE_FIELD_IDS["date_time"] in row:
+                row[CANDLE_FIELD_IDS["date_time"]] = _normalize_candle_date_time(row[CANDLE_FIELD_IDS["date_time"]], real_period)
+            rows.append(row)
+    return _merge_candle_rows(rows)
+
+def merge_candle_responses(responses, period=5):
+    parsed = []
+    for request_id, response in responses:
+        rows = candle_rows_from_response(response, period)
+        if rows:
+            parsed.append((request_id, rows))
+    if not parsed:
+        return []
+    main_index = min(range(len(parsed)), key=lambda index: parsed[index][0])
+    result = [dict(row) for row in parsed[main_index][1]]
+    indexes = {}
+    for index, row in enumerate(result):
+        key = _candle_row_key(row)
+        if key is not None and key not in indexes:
+            indexes[key] = index
+    for index, (request_id, rows) in enumerate(parsed):
+        if index == main_index:
+            continue
+        for row in rows:
+            key = _candle_row_key(row)
+            if key is None or key not in indexes:
+                continue
+            target = result[indexes[key]]
+            for field_id, value in row.items():
+                if field_id not in target:
+                    target[field_id] = value
+    return result
+
 BinaryPack.FullBytes = property(lambda self: self.full_bytes)
 BinaryPack.HeadLength = property(lambda self: self.head_length)
 BinaryPack.BodyStartIndex = property(lambda self: self.body_start_index)
@@ -312,6 +542,7 @@ DataResponseV2.DecompressedBytes = property(lambda self: self.decompressed_bytes
 DataResponseV2.AsString = DataResponseV2.as_string
 DataResponseV2.GetExtraDic = DataResponseV2.get_extra_dic
 DataResponseV2.AsListDictionary = DataResponseV2.as_list_dictionary
+DataResponseV2.AsCandleList = DataResponseV2.as_candle_list
 
 StringToParameterDictionary = string_to_parameter_dictionary
 ParameterDictionaryToString = parameter_dictionary_to_string

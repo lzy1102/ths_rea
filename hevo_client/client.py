@@ -6,8 +6,8 @@ from .auth import get_auth_passport
 from .auth import login as auth_login
 from .auth import make_auth_bytes
 from .auth import get_mac_address
-from .binarypack import (BinaryPack, BinaryPackLayoutV2, DataResponseV2, parameter_dictionary_to_binary_pack, parameter_dictionary_to_string, request_trend_v2, string_to_parameter_dictionary)
-from .constants import DEFAULT_QSID
+from .binarypack import (BinaryPack, BinaryPackLayoutV2, DataResponseV2, distribute_candle_fields, format_candle_time, get_real_period_id, merge_candle_responses, normalize_candle_fields, parameter_dictionary_to_binary_pack, parameter_dictionary_to_string, request_candle_v2, request_trend_v2, string_to_parameter_dictionary)
+from .constants import CANDLE_FIELD_IDS, DEFAULT_QSID, INDEX_MARKETS
 from .errors import AuthError, HevoError
 from .salt import login_salt
 
@@ -107,6 +107,40 @@ class HevoClient:
         response = DataResponseV2(full_pack=bp)
         return response.as_list_dictionary()
 
+    def query_kline(self, code, market="USHA", period=5, count=100, end_time=None, start_time=None, fields=None, right="Forward", is_volume_exclude=False, host=None, port=None):
+        if self.auth is None and self.auth_bytes is None:
+            raise AuthError("not logged in")
+        real_period = get_real_period_id(period)
+        request_fields = normalize_candle_fields(fields)
+        if market in INDEX_MARKETS:
+            request_fields = [field_id for field_id in request_fields if field_id != CANDLE_FIELD_IDS["turnover_rate"]]
+        buckets = distribute_candle_fields(request_fields)
+        if not buckets:
+            return []
+        start = str(-int(count)) if start_time is None else format_candle_time(start_time, real_period)
+        end = "0" if end_time is None else format_candle_time(end_time, real_period)
+        target_host = host if host is not None else self.host
+        target_port = port if port is not None else self.port
+        if self.transport is None and (target_host is None or target_port is None):
+            raise HevoError("no transport or host/port")
+        responses = []
+        for request_id, bucket_fields in buckets:
+            request_string = request_candle_v2(request_id, market, code, start, end, bucket_fields, right, is_volume_exclude, real_period)
+            params = string_to_parameter_dictionary(request_string)
+            request_string = parameter_dictionary_to_string(params)
+            pack = parameter_dictionary_to_binary_pack(params)
+            request_bytes = pack.raw
+            if self.transport is not None:
+                if self.auth_bytes is not None and not self._auth_sent:
+                    self.transport(self.auth_bytes)
+                    self._auth_sent = True
+                response_bytes = self.transport(request_bytes)
+            else:
+                response_bytes = self._send_socket(target_host, target_port, request_bytes)
+            bp = BinaryPack.from_bytes(response_bytes)
+            responses.append((request_id, DataResponseV2(full_pack=bp)))
+        return merge_candle_responses(responses, real_period)
+
     def _send_socket(self, host, port, data):
         sock = self._get_socket(host, port)
         sock.sendall(data)
@@ -159,3 +193,4 @@ class HevoCredentials:
 
 HevoClient.Login = HevoClient.login
 HevoClient.QueryIntraday = HevoClient.query_intraday
+HevoClient.QueryKline = HevoClient.query_kline
